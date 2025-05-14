@@ -72,7 +72,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       const storedPassword = await AsyncStorage.getItem('userPassword');
 
       if (email === storedEmail && password === storedPassword) {
-        navigation.replace('PatientHome'); // Regular user's home screen
+        navigation.replace('PatientTabs'); // Regular user's home screen
       } else {
         Alert.alert('Error', 'Invalid email or password');
       }

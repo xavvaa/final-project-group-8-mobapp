@@ -4,7 +4,7 @@ import { View, Text, StyleSheet } from 'react-native';
 const AppointmentsScreen: React.FC = () => {
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>Notifs here</Text>
+      <Text style={styles.text}>profile log out here</Text>
     </View>
   );
 };
