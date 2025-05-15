@@ -16,6 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../App';
+import { Ionicons } from '@expo/vector-icons';
 
 type RegisterScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Register'>;
 type RegisterScreenRouteProp = RouteProp<RootStackParamList, 'Register'>;
@@ -45,46 +46,97 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     confirmPassword: false,
   });
 
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState('');
+  const [isFormValid, setIsFormValid] = useState(false);
+
   const validateEmail = (value: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
-  const validatePasswordStrength = (value: string) =>
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/.test(value);
-
-  const validate = () => {
-    const newErrors = {
-      name: name ? '' : 'This field is required',
-      email: email
-        ? validateEmail(email)
-          ? ''
-          : 'Enter a valid email address'
-        : 'This field is required',
-      password: password
-        ? validatePasswordStrength(password)
-          ? ''
-          : 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character'
-        : 'This field is required',
-      confirmPassword: confirmPassword
-        ? confirmPassword === password
-          ? ''
-          : 'Passwords do not match'
-        : 'This field is required',
-    };
-
-    setErrors(newErrors);
-    return newErrors;
+  const validatePasswordStrength = (value: string) => {
+    if (value.length < 8) {
+      setPasswordStrength('Weak');
+      return false;
+    } else if (
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(value) &&
+      !/[\W_]/.test(value)
+    ) {
+      setPasswordStrength('Medium');
+      return true;
+    } else if (/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/.test(value)) {
+      setPasswordStrength('Strong');
+      return true;
+    }
+    setPasswordStrength('Weak');
+    return false;
   };
 
-  const handleRegister = async () => {
-    const validationErrors = validate();
-    setTouched({
-      name: true,
-      email: true,
-      password: true,
-      confirmPassword: true,
-    });
+  const getStrengthColor = () => {
+    switch (passwordStrength) {
+      case 'Weak':
+        return 'red';
+      case 'Medium':
+        return 'orange';
+      case 'Strong':
+        return 'green';
+      default:
+        return 'gray';
+    }
+  };
 
-    if (Object.values(validationErrors).some((e) => e !== '')) {
+  const validateField = (field: keyof typeof errors, value: string) => {
+    let error = '';
+
+    switch (field) {
+      case 'name':
+        error = value ? '' : 'This field is required';
+        break;
+      case 'email':
+        error = value
+          ? validateEmail(value)
+            ? ''
+            : 'Enter a valid email address'
+          : 'This field is required';
+        break;
+      case 'password':
+        error = value
+          ? validatePasswordStrength(value)
+            ? ''
+            : 'Password must include uppercase, lowercase, number, and special character'
+          : 'This field is required';
+        break;
+      case 'confirmPassword':
+        error = value
+          ? value === password
+            ? ''
+            : 'Passwords do not match'
+          : 'This field is required';
+        break;
+    }
+
+    setErrors((prev) => ({ ...prev, [field]: error }));
+  };
+
+  const getValue = (field: keyof typeof errors): string => {
+    switch (field) {
+      case 'name': return name;
+      case 'email': return email;
+      case 'password': return password;
+      case 'confirmPassword': return confirmPassword;
+      default: return '';
+    }
+  };
+
+  useEffect(() => {
+    const noErrors = Object.values(errors).every((e) => e === '');
+    const allTouched = Object.values(touched).every((t) => t);
+    const allFilled = name && email && password && confirmPassword;
+    setIsFormValid(noErrors && allTouched && allFilled);
+  }, [errors, touched, name, email, password, confirmPassword]);
+
+  const handleRegister = async () => {
+    if (!isFormValid) {
       Alert.alert('Error', 'Please fix the errors in the form.');
       return;
     }
@@ -99,39 +151,9 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  useEffect(() => {
-    const newErrors = { ...errors };
-
-    if (touched.name) {
-      newErrors.name = name ? '' : 'This field is required';
-    }
-    if (touched.email) {
-      newErrors.email = email
-        ? validateEmail(email)
-          ? ''
-          : 'Enter a valid email address'
-        : 'This field is required';
-    }
-    if (touched.password) {
-      newErrors.password = password
-        ? validatePasswordStrength(password)
-          ? ''
-          : 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character'
-        : 'This field is required';
-    }
-    if (touched.confirmPassword) {
-      newErrors.confirmPassword = confirmPassword
-        ? confirmPassword === password
-          ? ''
-          : 'Passwords do not match'
-        : 'This field is required';
-    }
-
-    setErrors(newErrors);
-  }, [name, email, password, confirmPassword]);
-
-  const handleBlur = (field: keyof typeof touched) => {
-    setTouched({ ...touched, [field]: true });
+  const handleBlur = <T extends keyof typeof touched>(field: T): void => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    validateField(field, getValue(field));
   };
 
   return (
@@ -146,7 +168,10 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.label}>Full Name</Text>
           <TextInput
             value={name}
-            onChangeText={setName}
+            onChangeText={(text) => {
+              setName(text);
+              validateField('name', text);
+            }}
             onBlur={() => handleBlur('name')}
             placeholder="Ex. Juan Dela Cruz"
             style={styles.input}
@@ -156,7 +181,10 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.label}>Email</Text>
           <TextInput
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              setEmail(text);
+              validateField('email', text);
+            }}
             onBlur={() => handleBlur('email')}
             placeholder="Email"
             keyboardType="email-address"
@@ -165,30 +193,55 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           {touched.email && errors.email ? <Text style={styles.error}>{errors.email}</Text> : null}
 
           <Text style={styles.label}>Password</Text>
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            onBlur={() => handleBlur('password')}
-            placeholder="Password"
-            secureTextEntry
-            style={styles.input}
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                validateField('password', text);
+              }}
+              onBlur={() => handleBlur('password')}
+              placeholder="Password"
+              secureTextEntry={!showPassword}
+              style={styles.passwordInput}
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={24} color="#555" />
+            </TouchableOpacity>
+          </View>
+          {password !== '' && (
+            <Text style={{ color: getStrengthColor(), alignSelf: 'flex-start', marginBottom: 5 }}>
+              Strength: {passwordStrength}
+            </Text>
+          )}
           {touched.password && errors.password ? <Text style={styles.error}>{errors.password}</Text> : null}
 
           <Text style={styles.label}>Confirm Password</Text>
-          <TextInput
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            onBlur={() => handleBlur('confirmPassword')}
-            placeholder="Confirm Password"
-            secureTextEntry
-            style={styles.input}
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              value={confirmPassword}
+              onChangeText={(text) => {
+                setConfirmPassword(text);
+                validateField('confirmPassword', text);
+              }}
+              onBlur={() => handleBlur('confirmPassword')}
+              placeholder="Confirm Password"
+              secureTextEntry={!showConfirmPassword}
+              style={styles.passwordInput}
+            />
+            <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+              <Ionicons name={showConfirmPassword ? 'eye' : 'eye-off'} size={24} color="#555" />
+            </TouchableOpacity>
+          </View>
           {touched.confirmPassword && errors.confirmPassword ? (
             <Text style={styles.error}>{errors.confirmPassword}</Text>
           ) : null}
 
-          <TouchableOpacity onPress={handleRegister} style={styles.button}>
+          <TouchableOpacity
+            onPress={handleRegister}
+            style={[styles.button, { backgroundColor: isFormValid ? '#007BFF' : '#999' }]}
+            disabled={!isFormValid}
+          >
             <Text style={styles.buttonText}>Register</Text>
           </TouchableOpacity>
 
@@ -231,6 +284,20 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     borderWidth: 1,
   },
+  passwordContainer: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderColor: '#ddd',
+    borderWidth: 1,
+    borderRadius: 5,
+    paddingHorizontal: 10,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 10,
+  },
   error: {
     color: 'red',
     alignSelf: 'flex-start',
@@ -241,7 +308,6 @@ const styles = StyleSheet.create({
     width: '100%',
     padding: 15,
     borderRadius: 5,
-    backgroundColor: '#007BFF',
     alignItems: 'center',
     marginTop: 10,
   },

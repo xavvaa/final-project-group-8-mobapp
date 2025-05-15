@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../App';
+import { Ionicons } from '@expo/vector-icons';
 
 type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
 type LoginScreenRouteProp = RouteProp<RootStackParamList, 'Login'>;
@@ -28,42 +29,39 @@ type Props = {
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const [errors, setErrors] = useState({ email: '', password: '' });
   const [touched, setTouched] = useState({ email: false, password: false });
+  const [isFormValid, setIsFormValid] = useState(false);
 
-  const validate = () => {
-    const newErrors = {
-      email: '',
-      password: '',
-    };
+  const validate = (field: 'email' | 'password', value: string) => {
+    let error = '';
 
-    if (!email) {
-      newErrors.email = 'This field is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = 'Enter a valid email address';
+    if (!value) {
+      error = 'This field is required';
+    } else if (field === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      error = 'Enter a valid email address';
     }
 
-    if (!password) {
-      newErrors.password = 'This field is required';
-    }
-
-    setErrors(newErrors);
-    return newErrors;
+    setErrors((prev) => ({ ...prev, [field]: error }));
   };
 
-  const handleLogin = async () => {
-    const newErrors = validate();
-    setTouched({ email: true, password: true });
+  useEffect(() => {
+    const noErrors = Object.values(errors).every((e) => e === '');
+    const allTouched = Object.values(touched).every((t) => t);
+    const allFilled = email !== '' && password !== '';
+    setIsFormValid(noErrors && allTouched && allFilled);
+  }, [errors, touched, email, password]);
 
-    if (newErrors.email || newErrors.password) {
+  const handleLogin = async () => {
+    if (!isFormValid) {
       Alert.alert('Error', 'Please fix the errors in the form.');
       return;
     }
 
-    // Hardcoded admin login check
     if (email === 'admin@gmail.com' && password === 'admin123') {
-      navigation.replace('AdminHome'); // Admin's home screen
+      navigation.replace('AdminHome');
       return;
     }
 
@@ -72,13 +70,18 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       const storedPassword = await AsyncStorage.getItem('userPassword');
 
       if (email === storedEmail && password === storedPassword) {
-        navigation.replace('PatientTabs'); // Regular user's home screen
+        navigation.replace('PatientTabs');
       } else {
         Alert.alert('Error', 'Invalid email or password');
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to log in.');
     }
+  };
+
+  const handleBlur = (field: 'email' | 'password') => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    validate(field, field === 'email' ? email : password);
   };
 
   return (
@@ -93,28 +96,47 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.label}>Email</Text>
           <TextInput
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              setEmail(text);
+              validate('email', text);
+            }}
             placeholder="Email"
             keyboardType="email-address"
             style={styles.input}
-            onBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
+            onBlur={() => handleBlur('email')}
           />
           {touched.email && errors.email ? <Text style={styles.error}>{errors.email}</Text> : null}
 
           <Text style={styles.label}>Password</Text>
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Password"
-            secureTextEntry
-            style={styles.input}
-            onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                validate('password', text);
+              }}
+              placeholder="Password"
+              secureTextEntry={!showPassword}
+              style={styles.passwordInput}
+              onBlur={() => handleBlur('password')}
+            />
+            <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)}>
+              <Ionicons
+                name={showPassword ? 'eye' : 'eye-off'}
+                size={24}
+                color="#555"
+              />
+            </TouchableOpacity>
+          </View>
           {touched.password && errors.password ? (
             <Text style={styles.error}>{errors.password}</Text>
           ) : null}
 
-          <TouchableOpacity onPress={handleLogin} style={styles.button}>
+          <TouchableOpacity
+            onPress={handleLogin}
+            style={[styles.button, { backgroundColor: isFormValid ? '#007BFF' : '#999' }]}
+            disabled={!isFormValid}
+          >
             <Text style={styles.buttonText}>Login</Text>
           </TouchableOpacity>
 
@@ -150,6 +172,21 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     borderWidth: 1,
   },
+  passwordContainer: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderColor: '#ddd',
+    borderWidth: 1,
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    marginBottom: 5,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 10,
+  },
   label: {
     alignSelf: 'flex-start',
     marginBottom: 3,
@@ -167,7 +204,6 @@ const styles = StyleSheet.create({
     width: '100%',
     padding: 15,
     borderRadius: 5,
-    backgroundColor: '#007BFF',
     alignItems: 'center',
     marginTop: 10,
   },
