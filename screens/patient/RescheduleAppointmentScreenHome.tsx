@@ -24,7 +24,7 @@ const availableTimeSlots = [
   '04:00 PM',
 ];
 
-const RescheduleAppointmentScreen: React.FC = () => {
+const RescheduleAppointmentScreenHome: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { oldAppointment, fromScreen } = route.params as { oldAppointment: any, fromScreen: 'Home' | 'Appointments' };
@@ -56,7 +56,7 @@ const RescheduleAppointmentScreen: React.FC = () => {
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
-          routes: [{ name: 'Appointments', params: { updated: true } }],
+          routes: [{ name: 'Home', params: { updated: true } }],
         })
       );
     } catch (error) {
@@ -164,7 +164,7 @@ const RescheduleAppointmentScreen: React.FC = () => {
   );
 };
 
-export default RescheduleAppointmentScreen;
+export default RescheduleAppointmentScreenHome;
 
 const styles = StyleSheet.create({
   safeArea: {

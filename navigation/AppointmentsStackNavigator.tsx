@@ -3,6 +3,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import AppointmentsScreen from '../screens/patient/AppointmentHistoryScreen';
 import RescheduleAppointmentScreen from '../screens/patient/RescheduleAppointmentScreen';
 
+
 export type AppointmentsStackParamList = {
   Appointments: undefined;
   RescheduleAppointment: {
@@ -17,6 +18,8 @@ const AppointmentsStackNavigator = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Appointments" component={AppointmentsScreen} />
       <Stack.Screen name="RescheduleAppointment" component={RescheduleAppointmentScreen} />
+
+      
     </Stack.Navigator>
   );
 };

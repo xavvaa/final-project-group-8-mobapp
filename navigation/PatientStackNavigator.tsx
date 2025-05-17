@@ -5,6 +5,7 @@ import DoctorDetailsScreen from '../screens/patient/DoctorDetailsScreen';
 import BookAppointmentScreen from '../screens/patient/BookAppointmentScreen';
 import AppointmentsScreen from '../screens/patient/AppointmentHistoryScreen';
 import RescheduleAppointmentScreen from '../screens/patient/RescheduleAppointmentScreen'; // Import your new screen
+import RescheduleAppointmentScreenHome from '../screens/patient/RescheduleAppointmentScreenHome';
 
 export type PatientStackParamList = {
   Home: undefined;
@@ -18,6 +19,9 @@ export type PatientStackParamList = {
   RescheduleAppointment: {
     oldAppointment: any; // The appointment object to reschedule
   };
+  RescheduleHome: {
+    oldAppointment: any;
+  }
 };
 
 const Stack = createStackNavigator<PatientStackParamList>();
@@ -28,8 +32,10 @@ const PatientStackNavigator = () => {
       <Stack.Screen name="Home" component={PatientHomeScreen} />
       <Stack.Screen name="DoctorDetails" component={DoctorDetailsScreen} />
       <Stack.Screen name="BookAppointment" component={BookAppointmentScreen} />
+      <Stack.Screen name="RescheduleAppointment" component={RescheduleAppointmentScreen}/>
       <Stack.Screen name="Appointments" component={AppointmentsScreen} />
-      <Stack.Screen name="RescheduleAppointment" component={RescheduleAppointmentScreen} />
+      <Stack.Screen name="RescheduleHome" component={RescheduleAppointmentScreenHome}/>
+
     </Stack.Navigator>
   );
 };

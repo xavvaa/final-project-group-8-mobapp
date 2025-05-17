@@ -27,26 +27,56 @@ const BookAppointmentScreen: React.FC = () => {
   const [selectedTime, setSelectedTime] = useState<string>('');
   const navigation = useNavigation();
   const route = useRoute(); // To get the doctor data passed via route params
-  const { doctor } = route.params; // Dynamically retrieve doctor info from route params
+  const { doctor, userName} = route.params; // Dynamically retrieve doctor info from route params
 
   const handleBook = async () => {
     if (!selectedDate || !selectedTime) return;
-
-    const newAppointment = {
-      id: Date.now().toString(),
-      doctor: doctor.name, // Use the dynamic doctor's name
-      specialty: doctor.specialty, // Add any other doctor details
-      date: selectedDate,
-      time: selectedTime,
-    };
-
+  
     try {
       const existing = await AsyncStorage.getItem('appointments');
       const parsed = existing ? JSON.parse(existing) : [];
+  
+      const existingAppointment = parsed.find(
+        (appointment) =>
+          appointment.doctor === doctor.name &&
+          appointment.date === selectedDate &&
+          appointment.user === userName
+      );
+  
+      if (existingAppointment) {
+        Alert.alert(
+          'Already Booked',
+          `You are already booked with ${doctor.name} on ${selectedDate}. Would you perhaps like to reschedule the appointment?`,
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            {
+              text: 'Reschedule',
+              onPress: () => {
+                navigation.navigate('RescheduleHome', {
+                  oldAppointment: existingAppointment,
+                });
+              },
+            },
+          ]
+        );
+        return;
+      }
+  
+      const newAppointment = {
+        id: Date.now().toString(),
+        doctor: doctor.name,
+        specialty: doctor.specialty,
+        date: selectedDate,
+        time: selectedTime,
+        user: userName,
+      };
+  
       const updated = [...parsed, newAppointment];
-
       await AsyncStorage.setItem('appointments', JSON.stringify(updated));
-
+  
       Alert.alert(
         'Appointment Confirmed',
         `Your appointment with Dr. ${doctor.name} is set on ${selectedDate} at ${selectedTime}.`,
@@ -61,13 +91,14 @@ const BookAppointmentScreen: React.FC = () => {
           },
         ]
       );
-
+  
       setSelectedDate('');
       setSelectedTime('');
     } catch (err) {
       console.error('Failed to save appointment:', err);
     }
   };
+  
 
   return (
     <SafeAreaView style={styles.safeArea}>
