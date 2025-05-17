@@ -11,6 +11,7 @@ import {
   Platform,
   Keyboard,
   TouchableWithoutFeedback,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -91,6 +92,14 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('../../assets/image/logo.png')} 
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
+          
           <Text style={styles.header}>Login</Text>
 
           <Text style={styles.label}>Email</Text>
@@ -156,6 +165,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f2f2f2',
     padding: 20,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  logo: {
+    width: 150,
+    height: 150,
   },
   header: {
     fontSize: 30,

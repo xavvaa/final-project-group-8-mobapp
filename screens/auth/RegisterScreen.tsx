@@ -11,6 +11,7 @@ import {
   Platform,
   Keyboard,
   TouchableWithoutFeedback,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -21,16 +22,16 @@ import { Ionicons } from '@expo/vector-icons';
 type RegisterScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Register'>;
 type RegisterScreenRouteProp = RouteProp<RootStackParamList, 'Register'>;
 
-type Props = {
+interface Props {
   navigation: RegisterScreenNavigationProp;
   route: RegisterScreenRouteProp;
-};
+}
 
 const RegisterScreen: React.FC<Props> = ({ navigation }) => {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [name, setName] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [confirmPassword, setConfirmPassword] = useState<string>('');
 
   const [errors, setErrors] = useState({
     name: '',
@@ -46,15 +47,15 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     confirmPassword: false,
   });
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [passwordStrength, setPasswordStrength] = useState('');
-  const [isFormValid, setIsFormValid] = useState(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
+  const [passwordStrength, setPasswordStrength] = useState<string>('');
+  const [isFormValid, setIsFormValid] = useState<boolean>(false);
 
-  const validateEmail = (value: string) =>
+  const validateEmail = (value: string): boolean => 
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
-  const validatePasswordStrength = (value: string) => {
+  const validatePasswordStrength = (value: string): boolean => {
     if (value.length < 8) {
       setPasswordStrength('Weak');
       return false;
@@ -72,70 +73,52 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     return false;
   };
 
-  const getStrengthColor = () => {
+  const getStrengthColor = (): string => {
     switch (passwordStrength) {
-      case 'Weak':
-        return 'red';
-      case 'Medium':
-        return 'orange';
-      case 'Strong':
-        return 'green';
-      default:
-        return 'gray';
+      case 'Weak': return 'red';
+      case 'Medium': return 'orange';
+      case 'Strong': return 'green';
+      default: return 'gray';
     }
   };
 
-  const validateField = (field: keyof typeof errors, value: string) => {
+  const validateField = (field: keyof typeof errors, value: string): void => {
     let error = '';
-
     switch (field) {
       case 'name':
         error = value ? '' : 'This field is required';
         break;
       case 'email':
-        error = value
-          ? validateEmail(value)
-            ? ''
-            : 'Enter a valid email address'
-          : 'This field is required';
+        error = value ? (validateEmail(value) ? '' : 'Enter a valid email address') : 'This field is required';
         break;
       case 'password':
-        error = value
-          ? validatePasswordStrength(value)
-            ? ''
-            : 'Password must include uppercase, lowercase, number, and special character'
-          : 'This field is required';
+        error = value ? (validatePasswordStrength(value) ? '' : 'Password must include uppercase, lowercase, number, and special character') : 'This field is required';
         break;
       case 'confirmPassword':
-        error = value
-          ? value === password
-            ? ''
-            : 'Passwords do not match'
-          : 'This field is required';
+        error = value ? (value === password ? '' : 'Passwords do not match') : 'This field is required';
         break;
     }
-
-    setErrors((prev) => ({ ...prev, [field]: error }));
+    setErrors(prev => ({ ...prev, [field]: error }));
   };
 
-  const getValue = (field: keyof typeof errors): string => {
-    switch (field) {
-      case 'name': return name;
-      case 'email': return email;
-      case 'password': return password;
-      case 'confirmPassword': return confirmPassword;
-      default: return '';
-    }
+  const handleBlur = (field: keyof typeof touched): void => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+    validateField(field, 
+      field === 'name' ? name :
+      field === 'email' ? email :
+      field === 'password' ? password :
+      confirmPassword
+    );
   };
 
   useEffect(() => {
-    const noErrors = Object.values(errors).every((e) => e === '');
-    const allTouched = Object.values(touched).every((t) => t);
+    const noErrors = Object.values(errors).every(e => e === '');
+    const allTouched = Object.values(touched).every(t => t);
     const allFilled = name && email && password && confirmPassword;
     setIsFormValid(noErrors && allTouched && allFilled);
   }, [errors, touched, name, email, password, confirmPassword]);
 
-  const handleRegister = async () => {
+  const handleRegister = async (): Promise<void> => {
     if (!isFormValid) {
       Alert.alert('Error', 'Please fix the errors in the form.');
       return;
@@ -151,101 +134,121 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const handleBlur = <T extends keyof typeof touched>(field: T): void => {
-    setTouched((prev) => ({ ...prev, [field]: true }));
-    validateField(field, getValue(field));
-  };
-
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <ScrollView 
+          contentContainerStyle={styles.container} 
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('../../assets/image/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
+
           <Text style={styles.header}>Register</Text>
 
+          {/* Name Field */}
           <Text style={styles.label}>Full Name</Text>
           <TextInput
             value={name}
-            onChangeText={(text) => {
-              setName(text);
-              validateField('name', text);
-            }}
+            onChangeText={setName}
             onBlur={() => handleBlur('name')}
             placeholder="Ex. Juan Dela Cruz"
             style={styles.input}
           />
-          {touched.name && errors.name ? <Text style={styles.error}>{errors.name}</Text> : null}
+          {touched.name && errors.name && <Text style={styles.error}>{errors.name}</Text>}
 
+          {/* Email Field */}
           <Text style={styles.label}>Email</Text>
           <TextInput
             value={email}
-            onChangeText={(text) => {
-              setEmail(text);
-              validateField('email', text);
-            }}
+            onChangeText={setEmail}
             onBlur={() => handleBlur('email')}
             placeholder="Email"
             keyboardType="email-address"
             style={styles.input}
           />
-          {touched.email && errors.email ? <Text style={styles.error}>{errors.email}</Text> : null}
+          {touched.email && errors.email && <Text style={styles.error}>{errors.email}</Text>}
 
+          {/* Password Field */}
           <Text style={styles.label}>Password</Text>
           <View style={styles.passwordContainer}>
             <TextInput
               value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                validateField('password', text);
-              }}
+              onChangeText={setPassword}
               onBlur={() => handleBlur('password')}
               placeholder="Password"
               secureTextEntry={!showPassword}
               style={styles.passwordInput}
             />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={24} color="#555" />
+            <TouchableOpacity onPress={() => setShowPassword(prev => !prev)}>
+              <Ionicons 
+                name={showPassword ? 'eye' : 'eye-off'} 
+                size={24} 
+                color="#555" 
+              />
             </TouchableOpacity>
           </View>
-          {password !== '' && (
-            <Text style={{ color: getStrengthColor(), alignSelf: 'flex-start', marginBottom: 5 }}>
+          {password && (
+            <Text style={{ 
+              color: getStrengthColor(), 
+              alignSelf: 'flex-start', 
+              marginBottom: 5 
+            }}>
               Strength: {passwordStrength}
             </Text>
           )}
-          {touched.password && errors.password ? <Text style={styles.error}>{errors.password}</Text> : null}
+          {touched.password && errors.password && (
+            <Text style={styles.error}>{errors.password}</Text>
+          )}
 
+          {/* Confirm Password Field */}
           <Text style={styles.label}>Confirm Password</Text>
           <View style={styles.passwordContainer}>
             <TextInput
               value={confirmPassword}
-              onChangeText={(text) => {
-                setConfirmPassword(text);
-                validateField('confirmPassword', text);
-              }}
+              onChangeText={setConfirmPassword}
               onBlur={() => handleBlur('confirmPassword')}
               placeholder="Confirm Password"
               secureTextEntry={!showConfirmPassword}
               style={styles.passwordInput}
             />
-            <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-              <Ionicons name={showConfirmPassword ? 'eye' : 'eye-off'} size={24} color="#555" />
+            <TouchableOpacity onPress={() => setShowConfirmPassword(prev => !prev)}>
+              <Ionicons 
+                name={showConfirmPassword ? 'eye' : 'eye-off'} 
+                size={24} 
+                color="#555" 
+              />
             </TouchableOpacity>
           </View>
-          {touched.confirmPassword && errors.confirmPassword ? (
+          {touched.confirmPassword && errors.confirmPassword && (
             <Text style={styles.error}>{errors.confirmPassword}</Text>
-          ) : null}
+          )}
 
+          {/* Register Button */}
           <TouchableOpacity
             onPress={handleRegister}
-            style={[styles.button, { backgroundColor: isFormValid ? '#007BFF' : '#999' }]}
+            style={[
+              styles.button, 
+              { backgroundColor: isFormValid ? '#007BFF' : '#999' }
+            ]}
             disabled={!isFormValid}
           >
             <Text style={styles.buttonText}>Register</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => navigation.replace('Login')} style={styles.link}>
+          {/* Login Link */}
+          <TouchableOpacity 
+            onPress={() => navigation.replace('Login')} 
+            style={styles.link}
+          >
             <Text style={styles.linkText}>Already have an account? Log in</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -261,6 +264,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f2f2f2',
     padding: 20,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  logo: {
+    width: 150,
+    height: 150,
   },
   header: {
     fontSize: 30,
