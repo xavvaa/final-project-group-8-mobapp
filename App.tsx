@@ -5,7 +5,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import LoginScreen from './screens/auth/LoginScreen';
 import RegisterScreen from './screens/auth/RegisterScreen';
 import AdminScreen from './screens/admin/AdminScreen';
-import PatientTabNavigator from './navigation/PatientTabNavigator'; // 👈 Import Tab Navigator
+import PatientTabNavigator from './navigation/PatientTabNavigator';
 
 export type RootStackParamList = {
   Login: undefined;

@@ -125,6 +125,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     try {
+      await AsyncStorage.setItem('userName', name);
       await AsyncStorage.setItem('userEmail', email);
       await AsyncStorage.setItem('userPassword', password);
       Alert.alert('Success', 'Registration successful!');
