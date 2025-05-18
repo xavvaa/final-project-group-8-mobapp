@@ -1,32 +1,23 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-
+import { NavigationContainer } from '@react-navigation/native';
 import LoginScreen from './screens/auth/LoginScreen';
 import RegisterScreen from './screens/auth/RegisterScreen';
-import AdminScreen from './screens/admin/AdminScreen';
-import PatientTabNavigator from './navigation/PatientTabNavigator';
+import AdminTabs from './navigation/AdminTabs';
+import PatientTabs from './navigation/PatientTabNavigator';
 
-export type RootStackParamList = {
-  Login: undefined;
-  Register: undefined;
-  PatientTabs: undefined; // 👈 Rename from PatientHome
-  AdminHome: undefined;
-};
+const Stack = createStackNavigator();
 
-const Stack = createStackNavigator<RootStackParamList>();
-
-const App: React.FC = () => {
+function App() {
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
-        <Stack.Screen name="PatientTabs" component={PatientTabNavigator} />
-        <Stack.Screen name="AdminHome" component={AdminScreen} />
+        <Stack.Screen name="AdminTabs" component={AdminTabs} />
+        <Stack.Screen name="PatientTabs" component={PatientTabs} />
       </Stack.Navigator>
     </NavigationContainer>
   );
-};
+}
 
 export default App;

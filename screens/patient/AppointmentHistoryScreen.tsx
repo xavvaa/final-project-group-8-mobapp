@@ -21,11 +21,13 @@ type RouteProps = RouteProp<AppointmentsStackParamList, 'Appointments'>;
 
 type Appointment = {
   id: string;
-  doctor: string;
-  specialty: string;
+  doctorId: string;     // also present, good to keep
+  doctorName: string;   // <-- change this from doctor:string
+  specialty?: string;   // optional if you don't have it here
   date: string;
   time: string;
 };
+
 
 const AppointmentsScreen: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -83,7 +85,7 @@ const AppointmentsScreen: React.FC = () => {
 
   const renderItem = ({ item }: { item: Appointment }) => (
     <View style={styles.card}>
-      <Text style={styles.title}>Dr. {item.doctor}</Text>
+      <Text style={styles.title}>Dr. {item.doctorName}</Text>
       <Text style={styles.specialty}>{item.specialty}</Text>
       <Text style={styles.datetime}>
         {item.date} at {item.time}

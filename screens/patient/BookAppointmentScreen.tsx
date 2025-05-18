@@ -1,289 +1,364 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  SafeAreaView,
-  ScrollView,
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  FlatList,
+  Modal,
   Alert,
+  ScrollView,
+  SafeAreaView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Calendar } from 'react-native-calendars';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons'; // Importing Ionicons for the back button icon
+import { Ionicons } from '@expo/vector-icons';
 
-const availableTimeSlots = [
-  '09:00 AM',
-  '10:30 AM',
-  '01:00 PM',
-  '02:30 PM',
-  '04:00 PM',
-];
 
-const BookAppointmentScreen: React.FC = () => {
-  const [selectedDate, setSelectedDate] = useState<string>('');
-  const [selectedTime, setSelectedTime] = useState<string>('');
-  const navigation = useNavigation();
-  const route = useRoute(); // To get the doctor data passed via route params
-  const { doctor, userName} = route.params; // Dynamically retrieve doctor info from route params
+const DoctorBookingScreen = ({ route, navigation }) => {
+  const { doctor } = route.params;
 
-  const handleBook = async () => {
-    if (!selectedDate || !selectedTime) return;
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTime, setSelectedTime] = useState('');
+  const [appointments, setAppointments] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  useEffect(() => {
+    const loadAppointments = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('appointments');
+        if (saved) {
+          setAppointments(JSON.parse(saved));
+        }
+      } catch (error) {
+        console.error('Error loading appointments:', error);
+      }
+    };
+    loadAppointments();
+  }, []);
+
+  const getMarkedDates = () => {
+    const marked = {};
+
+    if (doctor.unavailableDates) {
+      Object.keys(doctor.unavailableDates).forEach((date) => {
+        marked[date] = {
+          disabled: true,
+          disableTouchEvent: true,
+          marked: true,
+          dotColor: 'red',
+        };
+      });
+    }
+
+    if (selectedDate && !marked[selectedDate]) {
+      marked[selectedDate] = {
+        selected: true,
+        selectedColor: '#6C63FF',
+      };
+    }
+
+    return marked;
+  };
+
+  const confirmBooking = async () => {
+    if (!selectedDate || !selectedTime) {
+      Alert.alert('Missing Information', 'Please select both a date and a time slot.');
+      return;
+    }
+  
+    // Check for duplicate booking on the same date for the same doctor
+    const isDuplicate = appointments.some(
+      (appt) => appt.doctorId === doctor.id && appt.date === selectedDate
+    );
+  
+    if (isDuplicate) {
+      Alert.alert(
+        'Duplicate Booking',
+        `You have already booked Dr. ${doctor.name} on ${selectedDate}.`
+      );
+      return;
+    }
+  
+    const newAppointment = {
+      id: Date.now().toString(),
+      doctorId: doctor.id,
+      doctorName: doctor.name,
+      date: selectedDate,
+      time: selectedTime,
+    };
+  
+    const updatedAppointments = [...appointments, newAppointment];
   
     try {
-      const existing = await AsyncStorage.getItem('appointments');
-      const parsed = existing ? JSON.parse(existing) : [];
-  
-      const existingAppointment = parsed.find(
-        (appointment) =>
-          appointment.doctor === doctor.name &&
-          appointment.date === selectedDate &&
-          appointment.user === userName
-      );
-  
-      if (existingAppointment) {
-        Alert.alert(
-          'Already Booked',
-          `You are already booked with ${doctor.name} on ${selectedDate}. Would you perhaps like to reschedule the appointment?`,
-          [
-            {
-              text: 'Cancel',
-              style: 'cancel',
-            },
-            {
-              text: 'Reschedule',
-              onPress: () => {
-                navigation.navigate('RescheduleHome', {
-                  oldAppointment: existingAppointment,
-                });
-              },
-            },
-          ]
-        );
-        return;
-      }
-  
-      const newAppointment = {
-        id: Date.now().toString(),
-        doctor: doctor.name,
-        specialty: doctor.specialty,
-        date: selectedDate,
-        time: selectedTime,
-        user: userName,
-      };
-  
-      const updated = [...parsed, newAppointment];
-      await AsyncStorage.setItem('appointments', JSON.stringify(updated));
-  
+      await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
+      setAppointments(updatedAppointments);
       Alert.alert(
-        'Appointment Confirmed',
-        `Your appointment with Dr. ${doctor.name} is set on ${selectedDate} at ${selectedTime}.`,
-        [
-          {
-            text: 'OK',
-            onPress: () =>
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Home' }],
-              }),
-          },
-        ]
+        'Success',
+        `Appointment booked with Dr. ${doctor.name} on ${selectedDate} at ${selectedTime}`
       );
-  
-      setSelectedDate('');
-      setSelectedTime('');
-    } catch (err) {
-      console.error('Failed to save appointment:', err);
+      setModalVisible(false);
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert('Error', 'Could not save the appointment. Please try again.');
+      console.error(error);
     }
   };
   
+  
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-  style={styles.contentContainer}
-  contentContainerStyle={{ paddingBottom: 40 }}
-  keyboardShouldPersistTaps="handled"
->
-  {/* Header with Back Button */}
-  <View style={styles.header}>
-    <TouchableOpacity onPress={() => navigation.goBack()}>
-      <Ionicons name="arrow-back" size={24} color="#333" />
-    </TouchableOpacity>
-    <Text style={styles.title}>Book an Appointment</Text>
-  </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F2F5FA' }}>
+      <ScrollView contentContainerStyle={styles.container}>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+  <Ionicons name="arrow-back" size={24} color="#4a90e2" />
+  <Text style={styles.backText}>Back to Doctors</Text>
+</TouchableOpacity>
 
-  {/* Doctor Info */}
-  <View style={styles.doctorInfo}>
-    <Text style={styles.doctorName}>{doctor.name}</Text>
-    <Text style={styles.doctorSpecialty}>{doctor.specialty}</Text>
-  </View>
 
-  {/* Calendar Picker */}
-  <Text style={styles.label}>Select Date</Text>
-  <Calendar
-    minDate={new Date().toISOString().split('T')[0]}
-    onDayPress={(day) => {
-      setSelectedDate(day.dateString);
-      setSelectedTime('');
-    }}
-    markedDates={{
-      [selectedDate]: {
-        selected: true,
-        marked: true,
-        selectedColor: '#007BFF',
-      },
-    }}
-    theme={{
-      selectedDayBackgroundColor: '#007BFF',
-      todayTextColor: '#007BFF',
-    }}
-  />
 
-  {/* Time Picker */}
-  {selectedDate ? (
-    <>
-      <Text style={styles.label}>Select Time</Text>
-      <FlatList
-        data={availableTimeSlots}
-        horizontal
-        keyExtractor={(item) => item}
-        contentContainerStyle={{ marginVertical: 10 }}
-        showsHorizontalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[
-              styles.timeSlot,
-              selectedTime === item && styles.selectedTime,
-            ]}
-            onPress={() => setSelectedTime(item)}
-          >
-            <Text
-              style={[
-                styles.timeSlotText,
-                selectedTime === item && { color: '#fff' },
-              ]}
-            >
-              {item}
-            </Text>
-          </TouchableOpacity>
+        <View style={styles.card}>
+          <Text style={styles.doctorName}>Dr. {doctor.name}</Text>
+          <Text style={styles.specialty}>{doctor.specialty}</Text>
+          <Text style={styles.bio}>{doctor.bio || 'No bio available.'}</Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Select a Date</Text>
+          <Calendar
+            onDayPress={(day) => {
+              if (!doctor.unavailableDates?.[day.dateString]) {
+                setSelectedDate(day.dateString);
+                setSelectedTime('');
+              }
+            }}
+            markedDates={getMarkedDates()}
+            theme={{
+              todayTextColor: '#6C63FF',
+              arrowColor: '#6C63FF',
+              selectedDayBackgroundColor: '#6C63FF',
+              textDayFontWeight: '600',
+            }}
+            style={styles.calendar}
+          />
+        </View>
+
+        {selectedDate && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>⏰ Select a Time Slot</Text>
+            <View style={styles.timeSlotsContainer}>
+              {doctor.timeSlots.length === 0 ? (
+                <Text style={{ color: '#777' }}>No available time slots.</Text>
+              ) : (
+                doctor.timeSlots.map((time) => (
+                  <TouchableOpacity
+                    key={time}
+                    onPress={() => setSelectedTime(time)}
+                    style={[
+                      styles.timeSlot,
+                      selectedTime === time && styles.timeSlotSelected,
+                    ]}
+                  >
+                    <Text
+                      style={
+                        selectedTime === time
+                          ? styles.timeSlotTextSelected
+                          : styles.timeSlotText
+                      }
+                    >
+                      {time}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+          </View>
         )}
-      />
-    </>
-  ) : (
-    <Text style={styles.note}>Please select a date to view time slots.</Text>
-  )}
 
-  {/* Book Button */}
-  <TouchableOpacity
-    style={[
-      styles.bookButton,
-      !(selectedDate && selectedTime) && styles.bookButtonDisabled,
-    ]}
-    disabled={!(selectedDate && selectedTime)}
-    onPress={handleBook}
-  >
-    <Text style={styles.bookButtonText}>Book Appointment</Text>
-  </TouchableOpacity>
-</ScrollView>
+        <TouchableOpacity
+          style={[
+            styles.bookButton,
+            (!selectedDate || !selectedTime) && styles.bookButtonDisabled,
+          ]}
+          disabled={!selectedDate || !selectedTime}
+          onPress={() => setModalVisible(true)}
+        >
+          <Text style={styles.bookButtonText}>Book Appointment</Text>
+        </TouchableOpacity>
+
+        {/* Confirmation Modal */}
+        <Modal
+          visible={modalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={styles.modalBackground}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Confirm Booking</Text>
+              <Text style={styles.modalInfo}>Doctor: Dr. {doctor.name}</Text>
+              <Text style={styles.modalInfo}>Date: {selectedDate}</Text>
+              <Text style={styles.modalInfo}>Time: {selectedTime}</Text>
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  onPress={() => setModalVisible(false)}
+                  style={[styles.modalButton, styles.cancelButton]}
+                >
+                  <Text>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={confirmBooking}
+                  style={[styles.modalButton, styles.confirmButton]}
+                >
+                  <Text style={{ color: 'white' }}>Confirm</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
     </SafeAreaView>
   );
 };
 
-export default BookAppointmentScreen;
-
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F7F8FA',
-  },
   container: {
-    flex: 1,
-    backgroundColor: '#F7F8FA', // Ensures a consistent background color
+    padding: 16,
+    paddingBottom: 32,
+    backgroundColor: '#F2F5FA',
   },
-  contentContainer: {
-    flex: 1,
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 30,
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    elevation: 5,
-  },
-  header: {
+  backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 16,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 10,
-  },
-  doctorInfo: {
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  doctorName: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  doctorSpecialty: {
+  
+  backText: {
+    color: '#4a90e2',
     fontSize: 16,
-    color: '#555',
-    marginTop: 5,
-  },
-  label: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 20,
-    marginBottom: 10,
-    color: '#333',
-  },
-  note: {
-    fontSize: 16,
-    color: '#888',
-    marginTop: 20,
-  },
-  timeSlotContainer: {
-    marginVertical: 10,
-    paddingBottom: 10,
-  },
-  timeSlot: {
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: '#007BFF',
-    marginRight: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  selectedTime: {
-    backgroundColor: '#007BFF',
-    borderColor: '#007BFF',
-  },
-  timeSlotText: {
-    color: '#007BFF',
+    marginLeft: 8,
     fontWeight: '500',
   },
-  bookButton: {
-    backgroundColor: '#007BFF',
-    paddingVertical: 16,
+  
+  card: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    marginBottom: 20,
+  },
+  doctorName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#222',
+  },
+  specialty: {
+    fontSize: 18,
+    color: '#666',
+    marginVertical: 4,
+  },
+  bio: {
+    fontSize: 15,
+    color: '#444',
+    marginTop: 8,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+    color: '#333',
+  },
+  calendar: {
     borderRadius: 10,
-    marginTop: 40,
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+    elevation: 3,
+  },
+  timeSlotsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  timeSlot: {
+    borderWidth: 1,
+    borderColor: '#6C63FF',
+    borderRadius: 30,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    marginRight: 10,
+    marginBottom: 12,
+    backgroundColor: '#fff',
+  },
+  timeSlotSelected: {
+    backgroundColor: '#6C63FF',
+  },
+  timeSlotText: {
+    color: '#6C63FF',
+    fontWeight: '600',
+  },
+  timeSlotTextSelected: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  bookButton: {
+    backgroundColor: '#6C63FF',
+    paddingVertical: 16,
+    borderRadius: 12,
     alignItems: 'center',
   },
   bookButtonDisabled: {
-    backgroundColor: '#A0A0A0',
+    backgroundColor: '#b9b6f3',
   },
   bookButtonText: {
-    color: '#fff',
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+  modalBackground: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontWeight: 'bold',
+    fontSize: 20,
+    marginBottom: 12,
+    color: '#222',
+  },
+  modalInfo: {
     fontSize: 16,
-    fontWeight: '600',
+    marginVertical: 4,
+    color: '#444',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    marginTop: 20,
+    justifyContent: 'space-between',
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  cancelButton: {
+    backgroundColor: '#e0e0e0',
+  },
+  confirmButton: {
+    backgroundColor: '#6C63FF',
   },
 });
+
+export default DoctorBookingScreen;

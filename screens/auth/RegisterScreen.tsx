@@ -12,12 +12,14 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   Image,
+  SafeAreaView
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../App';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 type RegisterScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Register'>;
 type RegisterScreenRouteProp = RouteProp<RootStackParamList, 'Register'>;
@@ -28,23 +30,35 @@ interface Props {
 }
 
 const RegisterScreen: React.FC<Props> = ({ navigation }) => {
+  const [username, setUsername] = useState<string>('');
   const [name, setName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
+  const [contactNumber, setContactNumber] = useState<string>('');
+  const [address, setAddress] = useState<string>('');
+  const [birthday, setBirthday] = useState<string>('');
 
   const [errors, setErrors] = useState({
+    username: '',
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
+    contactNumber: '',
+    address: '',
+    birthday: '',
   });
 
   const [touched, setTouched] = useState({
+    username: false,
     name: false,
     email: false,
     password: false,
     confirmPassword: false,
+    contactNumber: false,
+    address: false,
+    birthday: false,
   });
 
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -52,7 +66,11 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [passwordStrength, setPasswordStrength] = useState<string>('');
   const [isFormValid, setIsFormValid] = useState<boolean>(false);
 
-  const validateEmail = (value: string): boolean => 
+  const validateUsername = (value: string): boolean => {
+    return /^[a-zA-Z0-9_]{3,20}$/.test(value);
+  };
+
+  const validateEmail = (value: string): boolean =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
   const validatePasswordStrength = (value: string): boolean => {
@@ -73,18 +91,29 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     return false;
   };
 
+  const validateContactNumber = (value: string): boolean => {
+    return /^09\d{9}$/.test(value);
+  };
+
+  const validateBirthday = (value: string): boolean => {
+    return /^\d{4}-\d{2}-\d{2}$/.test(value);
+  };
+
   const getStrengthColor = (): string => {
     switch (passwordStrength) {
-      case 'Weak': return 'red';
-      case 'Medium': return 'orange';
-      case 'Strong': return 'green';
-      default: return 'gray';
+      case 'Weak': return '#ff4444';
+      case 'Medium': return '#ffbb33';
+      case 'Strong': return '#00C851';
+      default: return '#aaaaaa';
     }
   };
 
   const validateField = (field: keyof typeof errors, value: string): void => {
     let error = '';
     switch (field) {
+      case 'username':
+        error = value ? (validateUsername(value) ? '' : 'Username must be 3-20 characters (letters, numbers, _)') : 'This field is required';
+        break;
       case 'name':
         error = value ? '' : 'This field is required';
         break;
@@ -97,242 +126,431 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       case 'confirmPassword':
         error = value ? (value === password ? '' : 'Passwords do not match') : 'This field is required';
         break;
+      case 'contactNumber':
+        error = value ? (validateContactNumber(value) ? '' : 'Contact number must start with 09 and be 11 digits') : 'This field is required';
+        break;
+      case 'address':
+        error = value ? '' : 'This field is required';
+        break;
+      case 'birthday':
+        error = value ? (validateBirthday(value) ? '' : 'Birthday must be in YYYY-MM-DD format') : 'This field is required';
+        break;
     }
     setErrors(prev => ({ ...prev, [field]: error }));
   };
 
   const handleBlur = (field: keyof typeof touched): void => {
     setTouched(prev => ({ ...prev, [field]: true }));
-    validateField(field, 
+    validateField(field,
+      field === 'username' ? username :
       field === 'name' ? name :
       field === 'email' ? email :
       field === 'password' ? password :
-      confirmPassword
+      field === 'confirmPassword' ? confirmPassword :
+      field === 'contactNumber' ? contactNumber :
+      field === 'address' ? address :
+      birthday
     );
   };
 
   useEffect(() => {
     const noErrors = Object.values(errors).every(e => e === '');
     const allTouched = Object.values(touched).every(t => t);
-    const allFilled = name && email && password && confirmPassword;
+    const allFilled = username && name && email && password && confirmPassword && contactNumber && address && birthday;
     setIsFormValid(noErrors && allTouched && allFilled);
-  }, [errors, touched, name, email, password, confirmPassword]);
+  }, [errors, touched, username, name, email, password, confirmPassword, contactNumber, address, birthday]);
 
+  // In RegisterScreen.tsx
   const handleRegister = async (): Promise<void> => {
     if (!isFormValid) {
       Alert.alert('Error', 'Please fix the errors in the form.');
       return;
     }
-
+  
     try {
-      await AsyncStorage.setItem('userName', name);
-      await AsyncStorage.setItem('userEmail', email);
-      await AsyncStorage.setItem('userPassword', password);
-      Alert.alert('Success', 'Registration successful!');
-      navigation.replace('Login');
+      const existingUsers = await AsyncStorage.getItem('registeredUsers');
+      const users = existingUsers ? JSON.parse(existingUsers) : [];
+  
+      const usernameExists = users.some((user: any) => user.username === username);
+      const emailExists = users.some((user: any) => user.email === email.toLowerCase());
+  
+      if (usernameExists) {
+        Alert.alert('Error', 'Username already exists');
+        return;
+      }
+  
+      if (emailExists) {
+        Alert.alert('Error', 'Email already registered');
+        return;
+      }
+  
+      const newUser = {
+        id: Date.now().toString(),
+        username,
+        name,
+        email: email.toLowerCase(),
+        contactNumber,
+        address,
+        birthday,
+        registrationDate: new Date().toISOString(),
+        password, // In production, never store passwords in plain text
+      };
+  
+      const updatedUsers = [...users, newUser];
+      console.log('USERNAME BEFORE SAVING:', username);
+  
+      // Save the updated list of users
+      await AsyncStorage.setItem('registeredUsers', JSON.stringify(updatedUsers));
+  
+      // Also save the new user as currentUser (logged in)
+      await AsyncStorage.setItem('currentUser', JSON.stringify(newUser));
+  
+      Alert.alert('Success', 'Registration successful! You are now logged in.');
+      navigation.replace('PatientHomeScreen'); // or any screen for logged in users
+  
     } catch (error) {
+      console.error('Registration error:', error);
       Alert.alert('Error', 'Failed to save user data.');
     }
   };
+  
+  
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <ScrollView 
-          contentContainerStyle={styles.container} 
-          keyboardShouldPersistTaps="handled"
+    <LinearGradient colors={['#f5f7fa', '#c3cfe2']} style={styles.background}>
+      <SafeAreaView style={styles.safeArea} edges={['right', 'left', 'bottom']}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <View style={styles.logoContainer}>
-            <Image
-              source={require('../../assets/image/logo.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </View>
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <ScrollView 
+              contentContainerStyle={styles.container} 
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={styles.logoContainer}>
+                <Image
+                  source={require('../../assets/image/logo.png')}
+                  style={styles.logo}
+                  resizeMode="contain"
+                />
+              </View>
 
-          <Text style={styles.header}>Register</Text>
+              <Text style={styles.header}>Create Account</Text>
+              <Text style={styles.subHeader}>Fill in your details to get started</Text>
 
-          {/* Name Field */}
-          <Text style={styles.label}>Full Name</Text>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            onBlur={() => handleBlur('name')}
-            placeholder="Ex. Juan Dela Cruz"
-            style={styles.input}
-          />
-          {touched.name && errors.name && <Text style={styles.error}>{errors.name}</Text>}
+              {/* Username Field */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Username</Text>
+                <TextInput
+                  value={username}
+                  onChangeText={setUsername}
+                  onBlur={() => handleBlur('username')}
+                  placeholder="cool_user123"
+                  placeholderTextColor="#888"
+                  style={styles.input}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {touched.username && errors.username && <Text style={styles.error}>{errors.username}</Text>}
+              </View>
 
-          {/* Email Field */}
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            onBlur={() => handleBlur('email')}
-            placeholder="Email"
-            keyboardType="email-address"
-            style={styles.input}
-          />
-          {touched.email && errors.email && <Text style={styles.error}>{errors.email}</Text>}
+              {/* Name Field */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Full Name</Text>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  onBlur={() => handleBlur('name')}
+                  placeholder="Ex. Juan Dela Cruz"
+                  placeholderTextColor="#888"
+                  style={styles.input}
+                />
+                {touched.name && errors.name && <Text style={styles.error}>{errors.name}</Text>}
+              </View>
 
-          {/* Password Field */}
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.passwordContainer}>
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              onBlur={() => handleBlur('password')}
-              placeholder="Password"
-              secureTextEntry={!showPassword}
-              style={styles.passwordInput}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(prev => !prev)}>
-              <Ionicons 
-                name={showPassword ? 'eye' : 'eye-off'} 
-                size={24} 
-                color="#555" 
-              />
-            </TouchableOpacity>
-          </View>
-          {password && (
-            <Text style={{ 
-              color: getStrengthColor(), 
-              alignSelf: 'flex-start', 
-              marginBottom: 5 
-            }}>
-              Strength: {passwordStrength}
-            </Text>
-          )}
-          {touched.password && errors.password && (
-            <Text style={styles.error}>{errors.password}</Text>
-          )}
+              {/* Email Field */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Email</Text>
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  onBlur={() => handleBlur('email')}
+                  placeholder="Email"
+                  placeholderTextColor="#888"
+                  keyboardType="email-address"
+                  style={styles.input}
+                />
+                {touched.email && errors.email && <Text style={styles.error}>{errors.email}</Text>}
+              </View>
 
-          {/* Confirm Password Field */}
-          <Text style={styles.label}>Confirm Password</Text>
-          <View style={styles.passwordContainer}>
-            <TextInput
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              onBlur={() => handleBlur('confirmPassword')}
-              placeholder="Confirm Password"
-              secureTextEntry={!showConfirmPassword}
-              style={styles.passwordInput}
-            />
-            <TouchableOpacity onPress={() => setShowConfirmPassword(prev => !prev)}>
-              <Ionicons 
-                name={showConfirmPassword ? 'eye' : 'eye-off'} 
-                size={24} 
-                color="#555" 
-              />
-            </TouchableOpacity>
-          </View>
-          {touched.confirmPassword && errors.confirmPassword && (
-            <Text style={styles.error}>{errors.confirmPassword}</Text>
-          )}
+              {/* Contact Number Field */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Contact Number</Text>
+                <TextInput
+                  value={contactNumber}
+                  onChangeText={setContactNumber}
+                  onBlur={() => handleBlur('contactNumber')}
+                  placeholder="09XXXXXXXXX"
+                  placeholderTextColor="#888"
+                  keyboardType="phone-pad"
+                  maxLength={11}
+                  style={styles.input}
+                />
+                {touched.contactNumber && errors.contactNumber && <Text style={styles.error}>{errors.contactNumber}</Text>}
+              </View>
 
-          {/* Register Button */}
-          <TouchableOpacity
-            onPress={handleRegister}
-            style={[
-              styles.button, 
-              { backgroundColor: isFormValid ? '#007BFF' : '#999' }
-            ]}
-            disabled={!isFormValid}
-          >
-            <Text style={styles.buttonText}>Register</Text>
-          </TouchableOpacity>
+              {/* Address Field */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Address</Text>
+                <TextInput
+                  value={address}
+                  onChangeText={setAddress}
+                  onBlur={() => handleBlur('address')}
+                  placeholder="Your address"
+                  placeholderTextColor="#888"
+                  style={styles.input}
+                />
+                {touched.address && errors.address && <Text style={styles.error}>{errors.address}</Text>}
+              </View>
 
-          {/* Login Link */}
-          <TouchableOpacity 
-            onPress={() => navigation.replace('Login')} 
-            style={styles.link}
-          >
-            <Text style={styles.linkText}>Already have an account? Log in</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+              {/* Birthday Field */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Birthday (YYYY-MM-DD)</Text>
+                <TextInput
+                  value={birthday}
+                  onChangeText={setBirthday}
+                  onBlur={() => handleBlur('birthday')}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor="#888"
+                  style={styles.input}
+                />
+                {touched.birthday && errors.birthday && <Text style={styles.error}>{errors.birthday}</Text>}
+              </View>
+
+              {/* Password Field */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Password</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    value={password}
+                    onChangeText={setPassword}
+                    onBlur={() => handleBlur('password')}
+                    placeholder="Password"
+                    placeholderTextColor="#888"
+                    secureTextEntry={!showPassword}
+                    style={styles.passwordInput}
+                  />
+                  <TouchableOpacity 
+                    onPress={() => setShowPassword(prev => !prev)}
+                    style={styles.eyeIcon}
+                  >
+                    <Ionicons 
+                      name={showPassword ? 'eye' : 'eye-off'} 
+                      size={20} 
+                      color="#555" 
+                    />
+                  </TouchableOpacity>
+                </View>
+                {password && (
+                  <View style={styles.strengthContainer}>
+                    <Text style={styles.strengthLabel}>Password strength:</Text>
+                    <Text style={[styles.strengthText, { color: getStrengthColor() }]}>
+                      {passwordStrength}
+                    </Text>
+                  </View>
+                )}
+                {touched.password && errors.password && (
+                  <Text style={styles.error}>{errors.password}</Text>
+                )}
+              </View>
+
+              {/* Confirm Password Field */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Confirm Password</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    onBlur={() => handleBlur('confirmPassword')}
+                    placeholder="Confirm Password"
+                    placeholderTextColor="#888"
+                    secureTextEntry={!showConfirmPassword}
+                    style={styles.passwordInput}
+                  />
+                  <TouchableOpacity 
+                    onPress={() => setShowConfirmPassword(prev => !prev)}
+                    style={styles.eyeIcon}
+                  >
+                    <Ionicons 
+                      name={showConfirmPassword ? 'eye' : 'eye-off'} 
+                      size={20} 
+                      color="#555" 
+                    />
+                  </TouchableOpacity>
+                </View>
+                {touched.confirmPassword && errors.confirmPassword && (
+                  <Text style={styles.error}>{errors.confirmPassword}</Text>
+                )}
+              </View>
+
+              {/* Register Button */}
+              <TouchableOpacity
+                onPress={handleRegister}
+                style={[
+                  styles.button, 
+                  { 
+                    backgroundColor: isFormValid ? '#4a90e2' : '#cccccc',
+                    shadowColor: isFormValid ? '#4a90e2' : '#cccccc',
+                  }
+                ]}
+                disabled={!isFormValid}
+              >
+                <Text style={styles.buttonText}>Register</Text>
+              </TouchableOpacity>
+
+              {/* Login Link */}
+              <View style={styles.loginContainer}>
+                <Text style={styles.loginText}>Already have an account? </Text>
+                <TouchableOpacity onPress={() => navigation.replace('Login')}>
+                  <Text style={styles.loginLink}>Log in</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f5f7fa',
+  },
+  background: {
+    flex: 1,
+  },
   container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f2f2f2',
-    padding: 20,
+    padding: 25,
+    paddingBottom: 40,
   },
   logoContainer: {
     alignItems: 'center',
     marginBottom: 20,
+    marginTop: 20,
   },
   logo: {
-    width: 150,
-    height: 150,
+    width: 120,
+    height: 120,
   },
   header: {
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 5,
+    textAlign: 'center',
     color: '#333',
+  },
+  subHeader: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 30,
+    textAlign: 'center',
+  },
+  inputContainer: {
+    marginBottom: 15,
   },
   label: {
-    alignSelf: 'flex-start',
-    marginBottom: 3,
-    marginTop: 10,
-    fontWeight: '500',
-    color: '#333',
+    marginBottom: 8,
+    fontWeight: '600',
+    color: '#444',
+    fontSize: 14,
   },
   input: {
-    width: '100%',
-    padding: 10,
-    marginBottom: 5,
-    borderRadius: 5,
-    backgroundColor: '#fff',
-    borderColor: '#ddd',
     borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fff',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderRadius: 8,
+    fontSize: 16,
+    color: '#333',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   passwordContainer: {
-    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderColor: '#ddd',
     borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 10,
+    borderColor: '#ddd',
+    backgroundColor: '#fff',
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   passwordInput: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#333',
   },
-  error: {
-    color: 'red',
-    alignSelf: 'flex-start',
-    marginBottom: 10,
-    marginLeft: 5,
+  eyeIcon: {
+    padding: 5,
+  },
+  strengthContainer: {
+    flexDirection: 'row',
+    marginTop: 5,
+  },
+  strengthLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginRight: 5,
+  },
+  strengthText: {
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   button: {
-    width: '100%',
-    padding: 15,
-    borderRadius: 5,
+    marginTop: 25,
+    paddingVertical: 15,
+    borderRadius: 8,
     alignItems: 'center',
-    marginTop: 10,
+    shadowColor: '#4a90e2',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   buttonText: {
-    color: '#fff',
+    color: 'white',
+    fontWeight: '600',
     fontSize: 16,
   },
-  link: {
-    marginTop: 10,
+  error: {
+    color: '#ff4444',
+    fontSize: 12,
+    marginTop: 5,
+    marginLeft: 5,
   },
-  linkText: {
-    color: '#007BFF',
-    textDecorationLine: 'underline',
+  loginContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  loginText: {
+    color: '#666',
+  },
+  loginLink: {
+    color: '#4a90e2',
+    fontWeight: '600',
   },
 });
 
