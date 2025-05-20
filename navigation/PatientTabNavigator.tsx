@@ -47,7 +47,7 @@ const PatientTabNavigator = () => {
       })}
     >
       <Tab.Screen name="Home" component={PatientStackNavigator} />
-      <Tab.Screen name="History" component={AppointmentsStackNavigator} />
+      <Tab.Screen name="Appointments" component={AppointmentsStackNavigator} />
       <Tab.Screen name="Notifications" component={NotificationsScreen} />
       <Tab.Screen name="Profile" component={PatientProfileScreen} />
     </Tab.Navigator>

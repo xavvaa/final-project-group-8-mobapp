@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, SafeAreaView, Image } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, SafeAreaView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,15 +14,22 @@ const UserDoctorListScreen = ({ navigation }) => {
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Load doctors data
         const data = await AsyncStorage.getItem('doctors');
         if (data) {
           const docs = JSON.parse(data);
           setDoctors(docs);
           setFilteredDoctors(docs);
         }
-        const savedUsername = await AsyncStorage.getItem('username');
-        if (savedUsername) setUsername(savedUsername);
+        
+        // Load currentUser and set username
+        const storedUser = await AsyncStorage.getItem('currentUser');
+        if (storedUser) {
+          const user = JSON.parse(storedUser);
+          setUsername(user.username || 'User');
+        }
 
+        // Load appointments
         const savedAppointments = await AsyncStorage.getItem('appointments');
         if (savedAppointments) setAppointments(JSON.parse(savedAppointments));
       } catch (e) {
@@ -88,7 +95,8 @@ const UserDoctorListScreen = ({ navigation }) => {
             <Text style={styles.greetingText}>Hello,</Text>
             <Text style={styles.usernameText}>{username}</Text>
           </View>
-          <TouchableOpacity style={styles.notificationButton}>
+          <TouchableOpacity style={styles.notificationButton}
+          onPress={() => navigation.navigate('Notifications')}>
             <Ionicons name="notifications-outline" size={24} color="#6a11cb" />
           </TouchableOpacity>
         </View>

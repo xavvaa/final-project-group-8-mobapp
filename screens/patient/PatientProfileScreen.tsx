@@ -33,6 +33,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   const saveTimeout = useRef<NodeJS.Timeout | null>(null);
 
+  // Load user data on mount
   useEffect(() => {
     const loadUserData = async () => {
       try {
@@ -47,20 +48,31 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     loadUserData();
   }, []);
 
-  const scheduleSave = () => {
-    if (saveTimeout.current) clearTimeout(saveTimeout.current);
+  // Auto-save user changes with debounce
+  useEffect(() => {
+    if (saveTimeout.current) {
+      clearTimeout(saveTimeout.current);
+    }
+  
     saveTimeout.current = setTimeout(async () => {
       try {
         await AsyncStorage.setItem('currentUser', JSON.stringify(user));
+        await saveUserToRegisteredUsers(user); // Sync changes here too
       } catch (error) {
         Alert.alert('Error', 'Failed to save changes');
       }
     }, 1000);
-  };
+  
+    return () => {
+      if (saveTimeout.current) {
+        clearTimeout(saveTimeout.current);
+      }
+    };
+  }, [user]);
+  
 
   const handleChange = (field: keyof typeof user, value: string) => {
     setUser((prev) => ({ ...prev, [field]: value }));
-    scheduleSave();
   };
 
   const handleLogout = () => {
@@ -73,24 +85,56 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           text: 'Log Out',
           style: 'destructive',
           onPress: async () => {
-            await AsyncStorage.multiRemove(['userRole', 'currentUser']);
-            navigation.replace('Login');
-          },
+            try {
+              if (saveTimeout.current) {
+                clearTimeout(saveTimeout.current);
+                saveTimeout.current = null;
+              }
+              await AsyncStorage.setItem('currentUser', JSON.stringify(user));
+              await saveUserToRegisteredUsers(user); // Save final update
+          
+              await AsyncStorage.multiRemove(['userRole', 'currentUser']);
+              navigation.replace('Login');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to save before logout');
+            }
+          }
+          
         },
       ],
       { cancelable: true }
     );
   };
+  
 
   const getInitials = (fullName: string) => {
     if (!fullName.trim()) return 'U';
     const names = fullName.trim().split(' ');
     return names
       .slice(0, 2)
-      .map(name => name.charAt(0))
+      .map((name) => name.charAt(0))
       .join('')
       .toUpperCase();
   };
+
+  const saveUserToRegisteredUsers = async (updatedUser) => {
+    try {
+      const usersJSON = await AsyncStorage.getItem('registeredUsers');
+      const users = usersJSON ? JSON.parse(usersJSON) : [];
+  
+      const index = users.findIndex(
+        (u) => u.email.toLowerCase() === updatedUser.email.toLowerCase()
+      );
+  
+      if (index !== -1) {
+        users[index] = updatedUser; // Replace with updated user data
+        await AsyncStorage.setItem('registeredUsers', JSON.stringify(users));
+      }
+    } catch (error) {
+      console.error('Error updating registeredUsers:', error);
+    }
+  };
+  
 
   return (
     <SafeAreaView style={styles.safeArea}>

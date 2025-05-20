@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -8,22 +8,47 @@ import {
   ActivityIndicator,
   SafeAreaView
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 const AdminDashboardScreen = () => {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
-    todayAppointments: 8,
-    activeDoctors: 12,
-    registeredPatients: 56
+    todayAppointments: 0,
+    activeDoctors: 2, // still hardcoded unless you have a source
+    registeredPatients: 0
   });
 
-  useEffect(() => {
-    // Simulate data loading
-    setTimeout(() => setLoading(false), 1000);
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      const fetchStats = async () => {
+        try {
+          const appointmentsData = await AsyncStorage.getItem('appointments');
+          const usersData = await AsyncStorage.getItem('registeredUsers');
+  
+          const appointments = appointmentsData ? JSON.parse(appointmentsData) : [];
+          const users = usersData ? JSON.parse(usersData) : [];
+  
+          const patientUsers = users.filter(u => u.role === 'patient' || !u.role);
+  
+          setStats({
+            todayAppointments: appointments.length,
+            activeDoctors: 2,
+            registeredPatients: patientUsers.length
+          });
+        } catch (error) {
+          console.error("Error loading dashboard stats:", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+  
+      fetchStats();
+    }, [])
+  );
+  
 
   if (loading) {
     return (
@@ -32,6 +57,7 @@ const AdminDashboardScreen = () => {
       </View>
     );
   }
+
 
   return (
     <SafeAreaView style={styles.safeArea}>

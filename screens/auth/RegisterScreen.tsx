@@ -206,7 +206,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       await AsyncStorage.setItem('currentUser', JSON.stringify(newUser));
   
       Alert.alert('Success', 'Registration successful! You are now logged in.');
-      navigation.replace('PatientHomeScreen'); // or any screen for logged in users
+      navigation.replace('Login'); // or any screen for logged in users
   
     } catch (error) {
       console.error('Registration error:', error);

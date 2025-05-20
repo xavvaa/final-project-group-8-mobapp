@@ -20,21 +20,24 @@ const AdAppointmentsScreen = () => {
   const fetchAppointments = async () => {
     try {
       const storedAppointments = await AsyncStorage.getItem('appointments');
+      console.log('Raw storedAppointments:', storedAppointments);
+  
       if (storedAppointments) {
         const parsedAppointments = JSON.parse(storedAppointments);
-        // Ensure all appointments have required fields
+        // Map userName to patientName for backward compatibility and display
         const validatedAppointments = parsedAppointments.map((app: any) => ({
-          id: app.id || '',
-          patientName: app.patientName || 'Unknown Patient',
-          status: app.status || 'Pending',
-          doctor: app.doctor || 'Unknown Doctor',
+          ...app,
+          patientName: app.userName || app.patientName || 'Unknown Patient',
+          doctor: app.doctorName || app.doctor || 'Unknown Doctor',
           specialty: app.specialty || 'General',
+          status: app.status || 'Pending',
           date: app.date || new Date().toISOString(),
           time: app.time || '--:--',
           patientEmail: app.patientEmail || '',
           patientPhone: app.patientPhone || '',
           notes: app.notes || ''
         }));
+        
         setAppointments(validatedAppointments);
       }
     } catch (error) {
@@ -44,6 +47,7 @@ const AdAppointmentsScreen = () => {
       setRefreshing(false);
     }
   };
+  
 
   useEffect(() => {
     fetchAppointments();
@@ -79,6 +83,24 @@ const AdAppointmentsScreen = () => {
         }
       ]
     );
+  };
+
+  const approveAppointment = async (id: string) => {
+    try {
+      const updatedAppointments = appointments.map(app => {
+        if (app.id === id) {
+          return { ...app, status: 'Confirmed' };  // change status here
+        }
+        return app;
+      });
+  
+      await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
+      setAppointments(updatedAppointments);
+      Alert.alert('Success', 'Appointment approved successfully');
+    } catch (error) {
+      console.error('Error approving appointment:', error);
+      Alert.alert('Error', 'Failed to approve appointment');
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -117,39 +139,41 @@ const AdAppointmentsScreen = () => {
           </Text>
         </View>
       </View>
-
+  
       <View style={styles.detailsContainer}>
         <View style={styles.detailRow}>
-          <Ionicons name="person" size={18} color="#6a11cb" style={styles.detailIcon} />
-          <Text style={styles.detailText}>Dr. {item.doctor}</Text>
+          <Ionicons name="people" size={18} color="#6a11cb" style={styles.detailIcon} />
+          <Text style={styles.detailText}>
+            Appointment with <Text style={{ fontWeight: 'bold' }}>{item.doctor}</Text>
+          </Text>
         </View>
-        
+  
         <View style={styles.detailRow}>
           <Ionicons name="medkit" size={18} color="#6a11cb" style={styles.detailIcon} />
           <Text style={styles.detailText}>{item.specialty}</Text>
         </View>
-        
+  
         <View style={styles.detailRow}>
           <Ionicons name="calendar" size={18} color="#6a11cb" style={styles.detailIcon} />
           <Text style={styles.detailText}>
             {new Date(item.date).toLocaleDateString()} • {item.time}
           </Text>
         </View>
-        
+  
         {item.patientEmail && (
           <View style={styles.detailRow}>
             <Ionicons name="mail" size={18} color="#6a11cb" style={styles.detailIcon} />
             <Text style={styles.detailText}>{item.patientEmail}</Text>
           </View>
         )}
-        
+  
         {item.patientPhone && (
           <View style={styles.detailRow}>
             <Ionicons name="call" size={18} color="#6a11cb" style={styles.detailIcon} />
             <Text style={styles.detailText}>{item.patientPhone}</Text>
           </View>
         )}
-        
+  
         {item.notes && (
           <View style={styles.detailRow}>
             <Ionicons name="document-text" size={18} color="#6a11cb" style={styles.detailIcon} />
@@ -157,18 +181,29 @@ const AdAppointmentsScreen = () => {
           </View>
         )}
       </View>
-
+  
       <View style={styles.actionButtons}>
+      {item.status.toLowerCase() === 'pending' && (
         <TouchableOpacity 
-          style={styles.cancelButton}
-          onPress={() => cancelAppointment(item.id)}
+          style={styles.approveButton}
+          onPress={() => approveAppointment(item.id)}
         >
-          <Ionicons name="close-circle" size={18} color="#fff" />
-          <Text style={styles.cancelButtonText}>Cancel Appointment</Text>
+          <Ionicons name="checkmark-circle" size={18} color="#fff" />
+          <Text style={styles.approveButtonText}>Approve</Text>
         </TouchableOpacity>
-      </View>
+      )}
+
+      <TouchableOpacity 
+        style={styles.cancelButton}
+        onPress={() => cancelAppointment(item.id)}
+      >
+        <Ionicons name="close-circle" size={18} color="#fff" />
+        <Text style={styles.cancelButtonText}>Cancel Appointment</Text>
+      </TouchableOpacity>
+    </View>
     </View>
   );
+  
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -359,6 +394,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#aaa',
     marginTop: 8,
+  },
+  approveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4CAF50',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  approveButtonText: {
+    color: '#fff',
+    marginLeft: 6,
+    fontWeight: '600',
   },
 });
 

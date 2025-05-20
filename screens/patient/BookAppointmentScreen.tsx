@@ -25,10 +25,19 @@ const DoctorBookingScreen = ({ route, navigation }) => {
   useEffect(() => {
     const loadAppointments = async () => {
       try {
+        const currentUserData = await AsyncStorage.getItem('currentUser');
+        if (!currentUserData) return;
+  
+        const currentUser = JSON.parse(currentUserData);
+  
         const saved = await AsyncStorage.getItem('appointments');
-        if (saved) {
-          setAppointments(JSON.parse(saved));
-        }
+        const allAppointments = saved ? JSON.parse(saved) : [];
+  
+        const userAppointments = allAppointments.filter(
+          (appt: any) => appt.userId === currentUser.id
+        );
+  
+        setAppointments(userAppointments);
       } catch (error) {
         console.error('Error loading appointments:', error);
       }
@@ -66,32 +75,59 @@ const DoctorBookingScreen = ({ route, navigation }) => {
       return;
     }
   
-    // Check for duplicate booking on the same date for the same doctor
-    const isDuplicate = appointments.some(
-      (appt) => appt.doctorId === doctor.id && appt.date === selectedDate
-    );
-  
-    if (isDuplicate) {
-      Alert.alert(
-        'Duplicate Booking',
-        `You have already booked Dr. ${doctor.name} on ${selectedDate}.`
-      );
-      return;
-    }
-  
-    const newAppointment = {
-      id: Date.now().toString(),
-      doctorId: doctor.id,
-      doctorName: doctor.name,
-      date: selectedDate,
-      time: selectedTime,
-    };
-  
-    const updatedAppointments = [...appointments, newAppointment];
-  
     try {
+      const currentUserData = await AsyncStorage.getItem('currentUser');
+      if (!currentUserData) {
+        Alert.alert('Error', 'No user logged in.');
+        return;
+      }
+  
+      const currentUser = JSON.parse(currentUserData);
+  
+      // Reload all appointments
+      const saved = await AsyncStorage.getItem('appointments');
+      const allAppointments = saved ? JSON.parse(saved) : [];
+  
+      // Check for duplicate for the same user, doctor, and date
+      const isDuplicate = allAppointments.some(
+        (appt: any) =>
+          appt.userId === currentUser.id &&
+          appt.doctorId === doctor.id &&
+          appt.date === selectedDate
+      );
+  
+      if (isDuplicate) {
+        Alert.alert(
+          'Duplicate Booking',
+          `You have already booked Dr. ${doctor.name} on ${selectedDate}.`
+        );
+        return;
+      }
+  
+      const newAppointment = {
+        
+        id: Date.now().toString(),
+        userId: currentUser.id, 
+        userName: currentUser.name,
+        doctorId: doctor.id,
+        doctorName: doctor.name,
+        date: selectedDate,
+        time: selectedTime,
+        patientEmail: currentUser.email || '',
+        patientPhone: currentUser.phone || '',
+        notes: '', // optional, can be a separate field in UI
+        status: 'Pending',
+        
+      };
+  
+      const updatedAppointments = [...allAppointments, newAppointment];
+  
       await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
-      setAppointments(updatedAppointments);
+      console.log('Updated appointments:', JSON.stringify(updatedAppointments));
+      setAppointments(
+        updatedAppointments.filter((appt: any) => appt.userId === currentUser.id)
+      );
+  
       Alert.alert(
         'Success',
         `Appointment booked with Dr. ${doctor.name} on ${selectedDate} at ${selectedTime}`
@@ -103,7 +139,6 @@ const DoctorBookingScreen = ({ route, navigation }) => {
       console.error(error);
     }
   };
-  
   
 
   return (

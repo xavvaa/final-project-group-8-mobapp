@@ -21,13 +21,14 @@ type RouteProps = RouteProp<AppointmentsStackParamList, 'Appointments'>;
 
 type Appointment = {
   id: string;
-  doctorId: string;     // also present, good to keep
-  doctorName: string;   // <-- change this from doctor:string
-  specialty?: string;   // optional if you don't have it here
+  userId: string;       // ✅ NEW
+  doctorId: string;
+  doctorName: string;
+  specialty?: string;
   date: string;
   time: string;
+  status?: 'pending' | 'approved' | 'canceled';
 };
-
 
 const AppointmentsScreen: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -36,8 +37,22 @@ const AppointmentsScreen: React.FC = () => {
 
   const loadAppointments = async () => {
     try {
-      const data = await AsyncStorage.getItem('appointments');
-      setAppointments(data ? JSON.parse(data) : []);
+      const currentUserData = await AsyncStorage.getItem('currentUser');
+      const storedAppointments = await AsyncStorage.getItem('appointments');
+
+      if (!currentUserData) return;
+
+      const currentUser = JSON.parse(currentUserData);
+      const allAppointments: Appointment[] = storedAppointments
+        ? JSON.parse(storedAppointments)
+        : [];
+
+      // ✅ Filter only current user's appointments
+      const userAppointments = allAppointments.filter(
+        (appt) => appt.userId === currentUser.id
+      );
+
+      setAppointments(userAppointments);
     } catch (error) {
       console.error('Failed to load appointments:', error);
     }
@@ -53,9 +68,22 @@ const AppointmentsScreen: React.FC = () => {
           text: 'Yes',
           onPress: async () => {
             try {
-              const updated = appointments.filter((item) => item.id !== id);
-              await AsyncStorage.setItem('appointments', JSON.stringify(updated));
-              setAppointments(updated);
+              const currentUserData = await AsyncStorage.getItem('currentUser');
+              const currentUser = currentUserData ? JSON.parse(currentUserData) : null;
+
+              const saved = await AsyncStorage.getItem('appointments');
+              const allAppointments = saved ? JSON.parse(saved) : [];
+
+              const updatedAll = allAppointments.filter(
+                (item: Appointment) => item.id !== id
+              );
+
+              const updatedUserAppointments = updatedAll.filter(
+                (item: Appointment) => item.userId === currentUser?.id
+              );
+
+              await AsyncStorage.setItem('appointments', JSON.stringify(updatedAll));
+              setAppointments(updatedUserAppointments);
             } catch (error) {
               console.error('Failed to delete appointment:', error);
             }
@@ -83,13 +111,27 @@ const AppointmentsScreen: React.FC = () => {
     });
   };
 
+  const getStatusColor = (status?: string) => {
+    switch(status) {
+      case 'approved': return '#28a745';  // green
+      case 'canceled': return '#dc3545';  // red
+      case 'pending': 
+      default: 
+        return '#ffc107'; // yellow/orange for pending or undefined
+    }
+  };
+
   const renderItem = ({ item }: { item: Appointment }) => (
     <View style={styles.card}>
-      <Text style={styles.title}>Dr. {item.doctorName}</Text>
+      <Text style={styles.title}>{item.doctorName}</Text>
       <Text style={styles.specialty}>{item.specialty}</Text>
       <Text style={styles.datetime}>
         {item.date} at {item.time}
       </Text>
+      <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
+        {item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1) : 'Pending'}
+      </Text>
+  
       <View style={styles.actions}>
         <TouchableOpacity onPress={() => handleEdit(item)} style={styles.editBtn}>
           <Ionicons name="create-outline" size={18} color="#fff" />
@@ -191,4 +233,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#888',
   },
+  statusText: {
+    fontWeight: '600',
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  
 });
