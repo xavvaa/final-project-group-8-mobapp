@@ -28,7 +28,10 @@ const DoctorsScreen = () => {
   const [newTimeSlot, setNewTimeSlot] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // Load doctors from storage on component mount
+  // Get today's date string in YYYY-MM-DD format
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+
   useEffect(() => {
     const loadDoctors = async () => {
       try {
@@ -36,7 +39,6 @@ const DoctorsScreen = () => {
         if (savedDoctors) {
           setDoctors(JSON.parse(savedDoctors));
         } else {
-          // Initialize with default doctors if none saved
           await AsyncStorage.setItem('doctors', JSON.stringify(defaultDoctors));
           setDoctors(defaultDoctors);
         }
@@ -52,6 +54,9 @@ const DoctorsScreen = () => {
 
   const toggleDateAvailability = (date: string) => {
     if (!selectedDoctor) return;
+
+    // Prevent toggling past dates
+    if (date < todayStr) return;
 
     const updatedDoctors = doctors.map(doctor => {
       if (doctor.id === selectedDoctor.id) {
@@ -196,12 +201,13 @@ const DoctorsScreen = () => {
 
               <Text style={styles.sectionTitle}>Set Unavailable Dates</Text>
               <Calendar
+                minDate={todayStr} // Disable all dates before today
                 markedDates={selectedDoctor ? Object.keys(selectedDoctor.unavailableDates).reduce((acc, date) => {
                   acc[date] = { selected: true, selectedColor: '#ff4444' };
                   return acc;
                 }, {} as { [date: string]: any }) : {}}
                 onDayPress={(day) => {
-                  if (isEditing) {
+                  if (isEditing && day.dateString >= todayStr) {
                     toggleDateAvailability(day.dateString);
                   }
                   setSelectedDate(day.dateString);
@@ -362,30 +368,29 @@ const styles = StyleSheet.create({
   },
   detailBio: {
     fontSize: 14,
-    color: '#666',
+    color: '#555',
     textAlign: 'center',
-    lineHeight: 22,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#333',
-    margin: 16,
+    marginHorizontal: 16,
+    marginTop: 24,
     marginBottom: 8,
   },
   selectedDateText: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
-    margin: 16,
-    marginTop: 8,
+    color: '#555',
     textAlign: 'center',
+    marginVertical: 12,
   },
   timeSlotsHeader: {
     fontSize: 18,
     fontWeight: '600',
     color: '#333',
-    margin: 16,
+    marginHorizontal: 16,
+    marginTop: 24,
     marginBottom: 8,
   },
   timeSlotsContainer: {
@@ -418,20 +423,19 @@ const styles = StyleSheet.create({
   },
   timeInput: {
     flex: 1,
-    backgroundColor: 'white',
-    padding: 12,
-    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
-    marginRight: 8,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    color: '#333',
+    marginRight: 12,
   },
   addButton: {
     backgroundColor: '#4a90e2',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
   },
 });
 

@@ -10,33 +10,70 @@ import {
   SafeAreaView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Calendar } from 'react-native-calendars';
+import { Calendar, DateData } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
+import moment from 'moment';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+// Define types for your navigation params
+type RootStackParamList = {
+  DoctorBooking: { doctor: Doctor };
+  // other screens...
+};
 
-const DoctorBookingScreen = ({ route, navigation }) => {
+type DoctorBookingScreenProps = NativeStackScreenProps<
+  RootStackParamList,
+  'DoctorBooking'
+>;
+
+type Doctor = {
+  id: string;
+  name: string;
+  specialty: string;
+  bio?: string;
+  unavailableDates?: Record<string, boolean>;
+  timeSlots: string[];
+};
+
+type Appointment = {
+  id: string;
+  userId: string;
+  userName: string;
+  doctorId: string;
+  doctorName: string;
+  date: string;
+  time: string;
+  patientEmail: string;
+  patientPhone: string;
+  notes: string;
+  status: string;
+};
+
+const DoctorBookingScreen: React.FC<DoctorBookingScreenProps> = ({
+  route,
+  navigation,
+}) => {
   const { doctor } = route.params;
 
-  const [selectedDate, setSelectedDate] = useState('');
-  const [selectedTime, setSelectedTime] = useState('');
-  const [appointments, setAppointments] = useState([]);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedTime, setSelectedTime] = useState<string>('');
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [modalVisible, setModalVisible] = useState<boolean>(false);
 
   useEffect(() => {
     const loadAppointments = async () => {
       try {
         const currentUserData = await AsyncStorage.getItem('currentUser');
         if (!currentUserData) return;
-  
+
         const currentUser = JSON.parse(currentUserData);
-  
         const saved = await AsyncStorage.getItem('appointments');
-        const allAppointments = saved ? JSON.parse(saved) : [];
-  
+        const allAppointments: Appointment[] = saved ? JSON.parse(saved) : [];
+
         const userAppointments = allAppointments.filter(
-          (appt: any) => appt.userId === currentUser.id
+          (appt) => appt.userId === currentUser.id
         );
-  
+
         setAppointments(userAppointments);
       } catch (error) {
         console.error('Error loading appointments:', error);
@@ -45,9 +82,13 @@ const DoctorBookingScreen = ({ route, navigation }) => {
     loadAppointments();
   }, []);
 
-  const getMarkedDates = () => {
-    const marked = {};
+  const getMarkedDates = (): Record<string, any> => {
+    const marked: Record<string, any> = {};
 
+    // Disable past dates
+    const today = moment().format('YYYY-MM-DD');
+
+    // Mark unavailable doctor dates
     if (doctor.unavailableDates) {
       Object.keys(doctor.unavailableDates).forEach((date) => {
         marked[date] = {
@@ -59,6 +100,20 @@ const DoctorBookingScreen = ({ route, navigation }) => {
       });
     }
 
+    // Disable past dates for 1 year back to 1 year forward
+    const startDate = moment().subtract(1, 'years');
+    const endDate = moment().add(1, 'years');
+    for (let m = startDate.clone(); m.isBefore(endDate); m.add(1, 'days')) {
+      const dateStr = m.format('YYYY-MM-DD');
+      if (moment(dateStr).isBefore(today, 'day')) {
+        marked[dateStr] = {
+          disabled: true,
+          disableTouchEvent: true,
+        };
+      }
+    }
+
+    // Mark selected date
     if (selectedDate && !marked[selectedDate]) {
       marked[selectedDate] = {
         selected: true,
@@ -74,28 +129,26 @@ const DoctorBookingScreen = ({ route, navigation }) => {
       Alert.alert('Missing Information', 'Please select both a date and a time slot.');
       return;
     }
-  
+
     try {
       const currentUserData = await AsyncStorage.getItem('currentUser');
       if (!currentUserData) {
         Alert.alert('Error', 'No user logged in.');
         return;
       }
-  
+
       const currentUser = JSON.parse(currentUserData);
-  
-      // Reload all appointments
+
       const saved = await AsyncStorage.getItem('appointments');
-      const allAppointments = saved ? JSON.parse(saved) : [];
-  
-      // Check for duplicate for the same user, doctor, and date
+      const allAppointments: Appointment[] = saved ? JSON.parse(saved) : [];
+
       const isDuplicate = allAppointments.some(
-        (appt: any) =>
+        (appt) =>
           appt.userId === currentUser.id &&
           appt.doctorId === doctor.id &&
           appt.date === selectedDate
       );
-  
+
       if (isDuplicate) {
         Alert.alert(
           'Duplicate Booking',
@@ -103,11 +156,10 @@ const DoctorBookingScreen = ({ route, navigation }) => {
         );
         return;
       }
-  
-      const newAppointment = {
-        
+
+      const newAppointment: Appointment = {
         id: Date.now().toString(),
-        userId: currentUser.id, 
+        userId: currentUser.id,
         userName: currentUser.name,
         doctorId: doctor.id,
         doctorName: doctor.name,
@@ -115,19 +167,17 @@ const DoctorBookingScreen = ({ route, navigation }) => {
         time: selectedTime,
         patientEmail: currentUser.email || '',
         patientPhone: currentUser.phone || '',
-        notes: '', // optional, can be a separate field in UI
+        notes: '',
         status: 'Pending',
-        
       };
-  
+
       const updatedAppointments = [...allAppointments, newAppointment];
-  
+
       await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
-      console.log('Updated appointments:', JSON.stringify(updatedAppointments));
       setAppointments(
-        updatedAppointments.filter((appt: any) => appt.userId === currentUser.id)
+        updatedAppointments.filter((appt) => appt.userId === currentUser.id)
       );
-  
+
       Alert.alert(
         'Success',
         `Appointment booked with Dr. ${doctor.name} on ${selectedDate} at ${selectedTime}`
@@ -139,17 +189,14 @@ const DoctorBookingScreen = ({ route, navigation }) => {
       console.error(error);
     }
   };
-  
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F2F5FA' }}>
       <ScrollView contentContainerStyle={styles.container}>
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-  <Ionicons name="arrow-back" size={24} color="#4a90e2" />
-  <Text style={styles.backText}>Back to Doctors</Text>
-</TouchableOpacity>
-
-
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#4a90e2" />
+          <Text style={styles.backText}>Back to Doctors</Text>
+        </TouchableOpacity>
 
         <View style={styles.card}>
           <Text style={styles.doctorName}>Dr. {doctor.name}</Text>
@@ -160,8 +207,11 @@ const DoctorBookingScreen = ({ route, navigation }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Select a Date</Text>
           <Calendar
-            onDayPress={(day) => {
-              if (!doctor.unavailableDates?.[day.dateString]) {
+            onDayPress={(day: DateData) => {
+              if (
+                !doctor.unavailableDates?.[day.dateString] &&
+                !moment(day.dateString).isBefore(moment(), 'day')
+              ) {
                 setSelectedDate(day.dateString);
                 setSelectedTime('');
               }
@@ -184,7 +234,7 @@ const DoctorBookingScreen = ({ route, navigation }) => {
               {doctor.timeSlots.length === 0 ? (
                 <Text style={{ color: '#777' }}>No available time slots.</Text>
               ) : (
-                doctor.timeSlots.map((time) => (
+                doctor.timeSlots.map((time: string) => (
                   <TouchableOpacity
                     key={time}
                     onPress={() => setSelectedTime(time)}
@@ -258,7 +308,7 @@ const DoctorBookingScreen = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+    container: {
     padding: 16,
     paddingBottom: 32,
     backgroundColor: '#F2F5FA',
@@ -268,14 +318,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  
   backText: {
     color: '#4a90e2',
     fontSize: 16,
     marginLeft: 8,
     fontWeight: '500',
   },
-  
   card: {
     backgroundColor: 'white',
     padding: 20,
