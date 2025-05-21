@@ -21,7 +21,7 @@ type RouteProps = RouteProp<AppointmentsStackParamList, 'Appointments'>;
 
 type Appointment = {
   id: string;
-  userId: string;       // ✅ NEW
+  userId: string;
   doctorId: string;
   doctorName: string;
   specialty?: string;
@@ -47,7 +47,6 @@ const AppointmentsScreen: React.FC = () => {
         ? JSON.parse(storedAppointments)
         : [];
 
-      // ✅ Filter only current user's appointments
       const userAppointments = allAppointments.filter(
         (appt) => appt.userId === currentUser.id
       );
@@ -111,13 +110,17 @@ const AppointmentsScreen: React.FC = () => {
     });
   };
 
+  const handleBookAppointment = () => {
+    navigation.navigate('Home');
+  };
+
   const getStatusColor = (status?: string) => {
     switch(status) {
-      case 'approved': return '#28a745';  // green
-      case 'canceled': return '#dc3545';  // red
+      case 'approved': return '#28a745';
+      case 'canceled': return '#dc3545';
       case 'pending': 
       default: 
-        return '#ffc107'; // yellow/orange for pending or undefined
+        return '#ffc107';
     }
   };
 
@@ -153,16 +156,28 @@ const AppointmentsScreen: React.FC = () => {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>No appointments yet.</Text>
+            <View style={styles.emptyContainer}>
+              <Ionicons 
+                name="calendar-outline" 
+                size={64} 
+                color="#888" 
+                style={styles.emptyIcon}
+              />
+              <Text style={styles.emptyText}>No appointments yet</Text>
+              <TouchableOpacity 
+                style={styles.bookButton}
+                onPress={handleBookAppointment}
+              >
+                <Text style={styles.bookButtonText}>Book an Appointment</Text>
+              </TouchableOpacity>
+            </View>
           }
-          contentContainerStyle={{ paddingBottom: 20 }}
+          contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
         />
       </View>
     </SafeAreaView>
   );
 };
-
-export default AppointmentsScreen;
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -227,16 +242,44 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  emptyIcon: {
+    marginBottom: 16,
+    opacity: 0.6,
+  },
   emptyText: {
     textAlign: 'center',
-    marginTop: 60,
-    fontSize: 16,
-    color: '#888',
+    fontSize: 18,
+    color: '#666',
+    marginBottom: 24,
   },
   statusText: {
     fontWeight: '600',
     fontSize: 14,
     marginBottom: 8,
   },
-  
+  bookButton: {
+    backgroundColor: '#4a90e2',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  bookButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
 });
+
+export default AppointmentsScreen;
