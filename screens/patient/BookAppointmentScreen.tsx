@@ -152,7 +152,7 @@ const DoctorBookingScreen: React.FC<DoctorBookingScreenProps> = ({
       if (isDuplicate) {
         Alert.alert(
           'Duplicate Booking',
-          `You have already booked Dr. ${doctor.name} on ${selectedDate}.`
+          `You have already booked ${doctor.name} on ${selectedDate}.`
         );
         return;
       }
@@ -180,7 +180,7 @@ const DoctorBookingScreen: React.FC<DoctorBookingScreenProps> = ({
 
       Alert.alert(
         'Success',
-        `Appointment booked with Dr. ${doctor.name} on ${selectedDate} at ${selectedTime}`
+        `Appointment booked with ${doctor.name} on ${selectedDate} at ${selectedTime}`
       );
       setModalVisible(false);
       navigation.goBack();
@@ -199,7 +199,7 @@ const DoctorBookingScreen: React.FC<DoctorBookingScreenProps> = ({
         </TouchableOpacity>
 
         <View style={styles.card}>
-          <Text style={styles.doctorName}>Dr. {doctor.name}</Text>
+          <Text style={styles.doctorName}> {doctor.name}</Text>
           <Text style={styles.specialty}>{doctor.specialty}</Text>
           <Text style={styles.bio}>{doctor.bio || 'No bio available.'}</Text>
         </View>
@@ -280,7 +280,7 @@ const DoctorBookingScreen: React.FC<DoctorBookingScreenProps> = ({
           <View style={styles.modalBackground}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Confirm Booking</Text>
-              <Text style={styles.modalInfo}>Doctor: Dr. {doctor.name}</Text>
+              <Text style={styles.modalInfo}>Doctor: {doctor.name}</Text>
               <Text style={styles.modalInfo}>Date: {selectedDate}</Text>
               <Text style={styles.modalInfo}>Time: {selectedTime}</Text>
 

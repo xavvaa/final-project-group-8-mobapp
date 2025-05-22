@@ -5,18 +5,40 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '../../App';
+import { RootStackParamList } from '../../App'; // Make sure this is properly exported in App.tsx
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
+// Define your navigation types
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Profile'>;
-interface Props { navigation: ProfileScreenNavigationProp }
+
+interface Props {
+  navigation: ProfileScreenNavigationProp;
+}
+
+interface User {
+  username: string;
+  name: string;
+  email: string;
+  contactNumber: string;
+  address: string;
+  birthday: string;
+  password: string;
+}
+
+const initialUserState: User = {
+  username: '',
+  name: '',
+  email: '',
+  contactNumber: '',
+  address: '',
+  birthday: '',
+  password: '',
+};
 
 const ProfileScreen: React.FC<Props> = ({ navigation }) => {
-  const [user, setUser] = useState({
-    username: '', name: '', email: '', contactNumber: '',
-    address: '', birthday: '', password: '',
-  });
+  // State declarations
+  const [user, setUser] = useState<User>(initialUserState);
   const [isEditing, setIsEditing] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -42,9 +64,11 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  const saveTimeout = useRef<NodeJS.Timeout | null>(null);
   const [existingUsernames, setExistingUsernames] = useState<string[]>([]);
   const [existingEmails, setExistingEmails] = useState<string[]>([]);
+  
+  // Refs
+  const saveTimeout = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -78,19 +102,15 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   };
 
-  const validatePasswordStrength = (value: string): boolean => {
+  const validatePasswordStrength = (value: string): string => {
     if (value.length < 8) {
-      setPasswordStrength('Weak');
-      return false;
+      return 'Weak';
     } else if (/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(value) && !/[\W_]/.test(value)) {
-      setPasswordStrength('Medium');
-      return true;
+      return 'Medium';
     } else if (/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/.test(value)) {
-      setPasswordStrength('Strong');
-      return true;
+      return 'Strong';
     }
-    setPasswordStrength('Weak');
-    return false;
+    return 'Weak';
   };
 
   const validateContactNumber = (value: string): boolean => {
@@ -135,7 +155,15 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         }
         break;
       case 'password':
-        error = value ? (validatePasswordStrength(value) ? '' : 'Password must include uppercase, lowercase, number, and special character') : 'This field is required';
+        if (!value) {
+          error = 'This field is required';
+        } else {
+          const strength = validatePasswordStrength(value);
+          setPasswordStrength(strength);
+          if (strength === 'Weak') {
+            error = 'Password must include uppercase, lowercase, number, and special character';
+          }
+        }
         break;
       case 'contactNumber':
         error = value ? (validateContactNumber(value) ? '' : 'Contact number must start with 09 and be 11 digits') : 'This field is required';
@@ -150,7 +178,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     setErrors(prev => ({ ...prev, [field]: error }));
   };
 
-  const handleChange = async (field: keyof typeof user, value: string) => {
+  const handleChange = async (field: keyof User, value: string) => {
     setUser(prev => ({ ...prev, [field]: value }));
     setTouched(prev => ({ ...prev, [field]: true }));
     await validateField(field, value);
@@ -160,11 +188,13 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     setTouched(prev => ({ ...prev, [field]: true }));
   };
 
-  const saveUserToRegisteredUsers = async (updatedUser: typeof user) => {
+  const saveUserToRegisteredUsers = async (updatedUser: User): Promise<boolean> => {
     try {
       const usersJSON = await AsyncStorage.getItem('registeredUsers');
       const users = usersJSON ? JSON.parse(usersJSON) : [];
-      const index = users.findIndex((u: any) => u.email.toLowerCase() === updatedUser.email.toLowerCase());
+      const index = users.findIndex((u: User) => 
+        u.username === updatedUser.username || u.email === updatedUser.email
+      );
       if (index !== -1) {
         users[index] = updatedUser;
         await AsyncStorage.setItem('registeredUsers', JSON.stringify(users));
@@ -195,22 +225,18 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleSave = async () => {
-    let hasErrors = false;
-    Object.keys(user).forEach((field) => {
-      if (!user[field as keyof typeof user]) {
-        setErrors(prev => ({ ...prev, [field]: 'This field is required' }));
-        setTouched(prev => ({ ...prev, [field]: true }));
-        hasErrors = true;
-      }
+    // Validate all fields
+    const validationPromises = Object.entries(user).map(async ([field, value]) => {
+      await validateField(field as keyof typeof errors, value);
     });
-    
-    if (hasErrors) {
-      Alert.alert('Validation Error', 'Please fill in all required fields');
-      return;
-    }
-    
-    if (Object.values(errors).some(error => error !== '')) {
-      Alert.alert('Validation Error', 'Please fix the errors in the form');
+    await Promise.all(validationPromises);
+
+    // Check for errors
+    const hasEmptyFields = Object.values(user).some(value => !value);
+    const hasValidationErrors = Object.values(errors).some(error => error !== '');
+
+    if (hasEmptyFields || hasValidationErrors) {
+      Alert.alert('Validation Error', 'Please fill in all required fields and fix any errors');
       return;
     }
 
@@ -222,7 +248,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         Alert.alert('Success', 'Your profile has been updated successfully!');
         setIsEditing(false);
       } else {
-        Alert.alert('Error', 'Failed to update profile');
+        Alert.alert('Error', 'Failed to update profile in registered users');
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to save changes');
@@ -268,7 +294,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     });
   };
 
-  const getInitials = (fullName: string) => {
+  const getInitials = (fullName: string): string => {
     if (!fullName.trim()) return 'U';
     const names = fullName.trim().split(' ');
     return names.slice(0, 2).map((n) => n[0]).join('').toUpperCase();
@@ -288,6 +314,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
+        {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{getInitials(user.name)}</Text>
@@ -306,6 +333,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </View>
 
+        {/* Personal Information Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Personal Information</Text>
 
@@ -320,29 +348,30 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.label}>{label}</Text>
               <View style={[
                 styles.inputContainer,
-                errors[key] && styles.inputError
+                errors[key as keyof typeof errors] && styles.inputError
               ]}>
                 <Ionicons name={icon as any} size={20} color="#666" style={styles.icon} />
                 {isEditing ? (
                   <TextInput
                     style={styles.input}
-                    value={user[key as keyof typeof user]}
-                    onChangeText={(text) => handleChange(key as keyof typeof user, text)}
+                    value={user[key as keyof User]}
+                    onChangeText={(text) => handleChange(key as keyof User, text)}
                     onBlur={() => handleBlur(key as keyof typeof touched)}
-                    keyboardType={keyboard}
+                    keyboardType={keyboard as any}
                     placeholder={`Enter ${label.toLowerCase()}`}
                     editable={isEditing}
                   />
                 ) : (
-                  <Text style={styles.readOnlyText}>{user[key as keyof typeof user]}</Text>
+                  <Text style={styles.readOnlyText}>{user[key as keyof User]}</Text>
                 )}
               </View>
-              {(touched[key as keyof typeof touched] || isEditing) && errors[key] && (
-                <Text style={styles.errorText}>{errors[key]}</Text>
+              {(touched[key as keyof typeof touched] || isEditing) && errors[key as keyof typeof errors] && (
+                <Text style={styles.errorText}>{errors[key as keyof typeof errors]}</Text>
               )}
             </View>
           ))}
 
+          {/* Birthday Field */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Birthday</Text>
             <TouchableOpacity
@@ -373,6 +402,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
 
+        {/* Account Security Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account Security</Text>
           <View style={styles.inputGroup}>
@@ -414,6 +444,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
 
+        {/* Action Buttons */}
         <TouchableOpacity 
           style={[
             styles.actionButton, 
@@ -486,10 +517,12 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   );
 };
 
+// Constants
 const PRIMARY_COLOR = '#4a90e2';
 const SECONDARY_COLOR = '#e94b3c';
 const BG_COLOR = '#f8f9fa';
 
+// Styles
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: BG_COLOR },
   container: { padding: 20, paddingBottom: 40 },
