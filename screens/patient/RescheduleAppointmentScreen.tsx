@@ -14,7 +14,7 @@ import { Calendar } from 'react-native-calendars';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AppointmentsStackParamList } from '../../navigation/AppointmentsStackNavigator';
-import { globalStyles } from '../../globalStyles'; 
+import { globalStyles } from '../../globalStyles';
 
 type RescheduleNavigationProp = StackNavigationProp<AppointmentsStackParamList, 'RescheduleAppointment'>;
 type RescheduleRouteProp = RouteProp<AppointmentsStackParamList, 'RescheduleAppointment'>;
@@ -61,6 +61,18 @@ const RescheduleAppointmentScreen: React.FC = () => {
     fetchDoctorInfo();
   }, []);
 
+  // Helper: Check if selectedDate is today or later
+  const isDateValid = (dateStr: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // start of today
+
+    const selected = new Date(dateStr);
+    selected.setHours(0, 0, 0, 0);
+
+    return selected >= today;
+  };
+
+  // Mark dates including disabling past dates
   const getMarkedDates = () => {
     const marked: { [key: string]: any } = {};
 
@@ -86,20 +98,31 @@ const RescheduleAppointmentScreen: React.FC = () => {
   };
 
   const handleReschedule = async () => {
+    // Validate selected date and time before confirming
+    if (!selectedDate || !selectedTime) {
+      Alert.alert('Invalid Selection', 'Please select both a date and time.');
+      return;
+    }
+
+    if (!isDateValid(selectedDate)) {
+      Alert.alert('Invalid Date', 'Selected date is in the past. Please select a valid date.');
+      return;
+    }
+
     try {
       const data = await AsyncStorage.getItem('appointments');
       let appointments: Appointment[] = data ? JSON.parse(data) : [];
-  
+
       const updatedAppointments = appointments.map((appt) =>
         appt.id === oldAppointment.id
           ? { ...appt, date: selectedDate, time: selectedTime }
           : appt
       );
-  
+
       await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
-      
-      setModalVisible(false); // <-- Hide modal immediately
-  
+
+      setModalVisible(false); // Hide modal immediately
+
       Alert.alert('Success', 'Appointment rescheduled successfully.', [
         { text: 'OK', onPress: () => navigation.replace('Appointments', { updated: true }) },
       ]);
@@ -108,7 +131,6 @@ const RescheduleAppointmentScreen: React.FC = () => {
       Alert.alert('Error', 'Could not update the appointment.');
     }
   };
-  
 
   if (!doctor) {
     return (
@@ -133,12 +155,16 @@ const RescheduleAppointmentScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Select a New Date</Text>
           <Calendar
             onDayPress={(day) => {
-              if (!doctor.unavailableDates?.[day.dateString]) {
+              if (
+                !doctor.unavailableDates?.[day.dateString] &&
+                isDateValid(day.dateString)
+              ) {
                 setSelectedDate(day.dateString);
                 setSelectedTime('');
               }
             }}
             markedDates={getMarkedDates()}
+            minDate={new Date().toISOString().split('T')[0]} // Disable past dates here
             theme={{
               todayTextColor: '#6C63FF',
               arrowColor: '#6C63FF',
@@ -184,9 +210,9 @@ const RescheduleAppointmentScreen: React.FC = () => {
         <TouchableOpacity
           style={[
             styles.button,
-            (!selectedDate || !selectedTime) && styles.buttonDisabled,
+            (!selectedDate || !selectedTime || !isDateValid(selectedDate)) && styles.buttonDisabled,
           ]}
-          disabled={!selectedDate || !selectedTime}
+          disabled={!selectedDate || !selectedTime || !isDateValid(selectedDate)}
           onPress={() => setModalVisible(true)}
         >
           <Text style={styles.buttonText}>Confirm Reschedule</Text>
@@ -230,6 +256,8 @@ const RescheduleAppointmentScreen: React.FC = () => {
 };
 
 export default RescheduleAppointmentScreen;
+
+// ... styles unchanged
 
 const styles = StyleSheet.create({
   safeArea: {

@@ -3,13 +3,44 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, SafeArea
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { globalStyles } from '../../globalStyles';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
 
-const UserDoctorListScreen = ({ navigation }) => {
-  const [username, setUsername] = useState('User');
-  const [doctors, setDoctors] = useState([]);
-  const [filteredDoctors, setFilteredDoctors] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [appointments, setAppointments] = useState([]);
+type Doctor = {
+  id: string;
+  name: string;
+  specialty: string;
+};
+
+type Appointment = {
+  id: string;
+  doctorId: string;
+  date: string; // e.g. "2025-05-23"
+  time: string; // e.g. "14:30"
+};
+
+type RootStackParamList = {
+  PatientHome: undefined;
+  Notifications: undefined;
+  BookAppointment: { doctor: Doctor };
+};
+
+type PatientHomeScreenNavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  'PatientHome'
+>;
+
+type Props = {
+  navigation: PatientHomeScreenNavigationProp;
+};
+
+const PatientHomeScreen: React.FC<Props> = ({ navigation }) => {
+  const [username, setUsername] = useState<string>('User');
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [filteredDoctors, setFilteredDoctors] = useState<Doctor[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -17,11 +48,11 @@ const UserDoctorListScreen = ({ navigation }) => {
         // Load doctors data
         const data = await AsyncStorage.getItem('doctors');
         if (data) {
-          const docs = JSON.parse(data);
+          const docs: Doctor[] = JSON.parse(data);
           setDoctors(docs);
           setFilteredDoctors(docs);
         }
-        
+
         // Load currentUser and set username
         const storedUser = await AsyncStorage.getItem('currentUser');
         if (storedUser) {
@@ -45,31 +76,36 @@ const UserDoctorListScreen = ({ navigation }) => {
     } else {
       const term = searchTerm.toLowerCase();
       setFilteredDoctors(
-        doctors.filter(doc => 
-          doc.name.toLowerCase().includes(term) ||
-          doc.specialty.toLowerCase().includes(term)
+        doctors.filter(
+          (doc) =>
+            doc.name.toLowerCase().includes(term) ||
+            doc.specialty.toLowerCase().includes(term)
         )
       );
     }
   }, [searchTerm, doctors]);
 
-  const getNextAppointment = () => {
+  const getNextAppointment = (): Appointment | null => {
     if (!appointments.length) return null;
     const now = new Date();
     const sorted = appointments
-      .map(app => ({
+      .map((app) => ({
         ...app,
         datetime: new Date(`${app.date}T${app.time}:00`),
       }))
-      .filter(app => app.datetime > now)
-      .sort((a, b) => a.datetime - b.datetime);
+      .filter((app) => app.datetime > now)
+      .sort((a, b) => a.datetime.getTime() - b.datetime.getTime());
     return sorted[0] || null;
   };
 
   const nextAppointment = getNextAppointment();
 
-  const getDoctorAvatar = (name) => {
-    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase();
+  const getDoctorAvatar = (name: string) => {
+    const initials = name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase();
     return (
       <LinearGradient
         colors={['#6a11cb', '#2575fc']}
@@ -83,7 +119,7 @@ const UserDoctorListScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[globalStyles.safeArea, styles.container]}>
       <LinearGradient
         colors={['#f8f9fa', '#e9f5ff']}
         style={styles.background}
@@ -95,14 +131,21 @@ const UserDoctorListScreen = ({ navigation }) => {
             <Text style={styles.greetingText}>Hello,</Text>
             <Text style={styles.usernameText}>{username}</Text>
           </View>
-          <TouchableOpacity style={styles.notificationButton}
-          onPress={() => navigation.navigate('Notifications')}>
+          <TouchableOpacity
+            style={styles.notificationButton}
+            onPress={() => navigation.navigate('Notifications')}
+          >
             <Ionicons name="notifications-outline" size={24} color="#6a11cb" />
           </TouchableOpacity>
         </View>
 
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#888" style={styles.searchIcon} />
+          <Ionicons
+            name="search"
+            size={20}
+            color="#888"
+            style={styles.searchIcon}
+          />
           <TextInput
             style={styles.searchInput}
             placeholder="Search doctors..."
@@ -117,7 +160,7 @@ const UserDoctorListScreen = ({ navigation }) => {
 
         <FlatList
           data={filteredDoctors}
-          keyExtractor={item => item.id}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => (
             <TouchableOpacity
@@ -183,65 +226,18 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  upcomingCard: {
-    backgroundColor: '#6a11cb',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 24,
-    shadowColor: '#6a11cb',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  noAppointmentCard: {
-    backgroundColor: '#fff',
-    alignItems: 'center',
+  avatar: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     justifyContent: 'center',
-    paddingVertical: 24,
-  },
-  upcomingHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginRight: 16,
   },
-  upcomingTitle: {
+  avatarText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  upcomingContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  upcomingDetails: {
-    marginLeft: 16,
-  },
-  upcomingDoctor: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  upcomingSpecialty: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  upcomingTime: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  upcomingDateTime: {
-    color: '#fff',
-    fontSize: 14,
-    marginLeft: 4,
-  },
-  noAppointmentText: {
-    color: '#888',
-    marginTop: 8,
-    fontSize: 14,
+    fontSize: 20,
+    fontWeight: '700',
   },
   searchContainer: {
     flexDirection: 'row',
@@ -268,65 +264,52 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#444',
-    marginBottom: 16,
+    color: '#333',
+    marginBottom: 12,
   },
   listContent: {
-    paddingBottom: 30,
+    paddingBottom: 100,
   },
   doctorCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
   },
   doctorInfo: {
     flex: 1,
-    marginLeft: 16,
   },
   doctorName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#333',
-    marginBottom: 2,
   },
   doctorSpecialty: {
-    color: '#666',
     fontSize: 14,
-    marginBottom: 6,
+    color: '#666',
+    marginBottom: 8,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   ratingText: {
-    color: '#333',
-    fontSize: 13,
     marginLeft: 4,
+    fontSize: 14,
+    color: '#444',
+    fontWeight: '600',
   },
   experienceText: {
-    color: '#888',
-    fontSize: 13,
+    fontSize: 14,
+    color: '#444',
   },
 });
 
-export default UserDoctorListScreen;
+export default PatientHomeScreen;

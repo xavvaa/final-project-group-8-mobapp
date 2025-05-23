@@ -205,7 +205,7 @@ const AdAppointmentsScreen = () => {
       case 'confirmed': return '#4CAF50';
       case 'pending': return '#FF9800';
       case 'declined': return '#F44336';
-      case 'cancelled': return '#F44336';
+      case 'canceled': return '#F44336';
       default: return '#2196F3';
     }
   };
@@ -331,7 +331,7 @@ const AdAppointmentsScreen = () => {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterScrollContainer}
           >
-            {['All', 'Pending', 'Confirmed', 'Declined', 'Cancelled'].map(status => (
+            {['All', 'Pending', 'Confirmed', 'Declined', 'Canceled'].map(status => (
               <TouchableOpacity
                 key={status}
                 style={[

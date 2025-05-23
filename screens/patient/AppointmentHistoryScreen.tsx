@@ -7,13 +7,18 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  RefreshControl,
+  TextInput,
+  ScrollView
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRoute, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { globalStyles } from '../../globalStyles'; 
+import { LinearGradient } from 'expo-linear-gradient';
+import { globalStyles } from '../../globalStyles';
+import { parseISO, format } from 'date-fns';
 import { AppointmentsStackParamList } from '../../navigation/AppointmentsStackNavigator';
 
 type NavigationProp = StackNavigationProp<AppointmentsStackParamList, 'Appointments'>;
@@ -28,15 +33,23 @@ type Appointment = {
   date: string;
   time: string;
   status?: 'pending' | 'approved' | 'canceled';
+  patientName?: string;
+  patientEmail?: string;
+  patientPhone?: string;
+  notes?: string;
 };
 
 const AppointmentsScreen: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
 
   const loadAppointments = async () => {
     try {
+      setRefreshing(true);
       const currentUserData = await AsyncStorage.getItem('currentUser');
       const storedAppointments = await AsyncStorage.getItem('appointments');
 
@@ -47,13 +60,21 @@ const AppointmentsScreen: React.FC = () => {
         ? JSON.parse(storedAppointments)
         : [];
 
-      const userAppointments = allAppointments.filter(
-        (appt) => appt.userId === currentUser.id
-      );
+      const userAppointments = allAppointments
+        .filter((appt) => appt.userId === currentUser.id)
+        .map(appt => ({
+          ...appt,
+          patientName: currentUser.name || 'Patient',
+          patientEmail: currentUser.email,
+          patientPhone: currentUser.phone,
+          status: appt.status || 'pending'
+        }));
 
       setAppointments(userAppointments);
     } catch (error) {
       console.error('Failed to load appointments:', error);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -67,22 +88,11 @@ const AppointmentsScreen: React.FC = () => {
           text: 'Yes',
           onPress: async () => {
             try {
-              const currentUserData = await AsyncStorage.getItem('currentUser');
-              const currentUser = currentUserData ? JSON.parse(currentUserData) : null;
-
-              const saved = await AsyncStorage.getItem('appointments');
-              const allAppointments = saved ? JSON.parse(saved) : [];
-
-              const updatedAll = allAppointments.filter(
-                (item: Appointment) => item.id !== id
+              const updatedAppointments = appointments.map(app =>
+                app.id === id ? { ...app, status: 'canceled' } : app
               );
-
-              const updatedUserAppointments = updatedAll.filter(
-                (item: Appointment) => item.userId === currentUser?.id
-              );
-
-              await AsyncStorage.setItem('appointments', JSON.stringify(updatedAll));
-              setAppointments(updatedUserAppointments);
+              await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
+              setAppointments(updatedAppointments);
             } catch (error) {
               console.error('Failed to delete appointment:', error);
             }
@@ -98,11 +108,9 @@ const AppointmentsScreen: React.FC = () => {
     }, [])
   );
 
-  useEffect(() => {
-    if (route.params?.updated) {
-      loadAppointments();
-    }
-  }, [route.params]);
+  const handleRefresh = () => {
+    loadAppointments();
+  };
 
   const handleEdit = (appointment: Appointment) => {
     navigation.navigate('RescheduleAppointment', {
@@ -114,67 +122,164 @@ const AppointmentsScreen: React.FC = () => {
     navigation.navigate('Home');
   };
 
-  const getStatusColor = (status?: string) => {
-    switch(status) {
-      case 'approved': return '#28a745';
-      case 'canceled': return '#dc3545';
-      case 'pending': 
-      default: 
-        return '#ffc107';
+  const getStatusColor = (status: string) => {
+    switch ((status || '').toLowerCase()) {
+      case 'confirmed': return '#4CAF50';
+      case 'pending': return '#FF9800';
+      case 'declined': return '#F44336';
+      case 'canceled': return '#F44336';
+      default: return '#2196F3';
     }
   };
 
+  const getInitials = (name?: string) => {
+    if (!name) return '?';
+    const names = name.split(' ');
+    return names.slice(0, 2).map(n => n[0]).join('').toUpperCase();
+  };
+
   const renderItem = ({ item }: { item: Appointment }) => (
-    <View style={styles.card}>
-      <Text style={styles.title}>{item.doctorName}</Text>
-      <Text style={styles.specialty}>{item.specialty}</Text>
-      <Text style={styles.datetime}>
-        {item.date} at {item.time}
-      </Text>
-      <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-        {item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1) : 'Pending'}
-      </Text>
-  
-      <View style={styles.actions}>
-        <TouchableOpacity onPress={() => handleEdit(item)} style={styles.editBtn}>
-          <Ionicons name="create-outline" size={18} color="#fff" />
-          <Text style={styles.actionText}>Reschedule</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => deleteAppointment(item.id)} style={styles.cancelBtn}>
-          <Ionicons name="trash-outline" size={18} color="#fff" />
-          <Text style={styles.actionText}>Cancel</Text>
-        </TouchableOpacity>
+    <View style={styles.appointmentCard}>
+      <View style={styles.cardHeader}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{getInitials(item.patientName)}</Text>
+        </View>
+        <View style={styles.headerText}>
+          <Text style={styles.patientName}>{item.patientName}</Text>
+          <Text style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+            {item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1) : 'Pending'}
+          </Text>
+        </View>
       </View>
+
+      <View style={styles.detailsContainer}>
+        <View style={styles.detailRow}>
+          <Ionicons name="people" size={18} color="#6a11cb" style={styles.detailIcon} />
+          <Text style={styles.detailText}>
+            Appointment with <Text style={{ fontWeight: 'bold' }}>{item.doctorName}</Text>
+          </Text>
+        </View>
+
+        {item.specialty && (
+          <View style={styles.detailRow}>
+            <Ionicons name="medkit" size={18} color="#6a11cb" style={styles.detailIcon} />
+            <Text style={styles.detailText}>{item.specialty}</Text>
+          </View>
+        )}
+
+        <View style={styles.detailRow}>
+          <Ionicons name="calendar" size={18} color="#6a11cb" style={styles.detailIcon} />
+          <Text style={styles.detailText}>
+            {item.date} • {item.time}
+          </Text>
+        </View>
+
+        {item.patientEmail && (
+          <View style={styles.detailRow}>
+            <Ionicons name="mail" size={18} color="#6a11cb" style={styles.detailIcon} />
+            <Text style={styles.detailText}>{item.patientEmail}</Text>
+          </View>
+        )}
+
+        {item.patientPhone && (
+          <View style={styles.detailRow}>
+            <Ionicons name="call" size={18} color="#6a11cb" style={styles.detailIcon} />
+            <Text style={styles.detailText}>{item.patientPhone}</Text>
+          </View>
+        )}
+      </View>
+
+      {item.status !== 'canceled' && (
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => handleEdit(item)}
+          >
+            <Ionicons name="create-outline" size={18} color="#fff" />
+            <Text style={styles.editButtonText}>Reschedule</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={() => deleteAppointment(item.id)}
+          >
+            <Ionicons name="trash-outline" size={18} color="#fff" />
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 
   return (
     <SafeAreaView style={[globalStyles.safeArea, styles.safeArea]}>
-      <View style={{ flex: 1 }}>
+      <LinearGradient
+        colors={['#f8f9fa', '#e9f5ff']}
+        style={styles.background}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>My Appointments</Text>
+        </View>
+
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search appointments..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          <ScrollView 
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterScrollContainer}
+          >
+            {['All', 'Pending', 'Confirmed', 'Canceled'].map(status => (
+              <TouchableOpacity
+                key={status}
+                style={[
+                  styles.filterButton, 
+                  statusFilter === status && styles.activeFilter,
+                  { marginRight: 8 }
+                ]}
+                onPress={() => setStatusFilter(status)}
+              >
+                <Text style={styles.filterButtonText}>{status}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
         <FlatList
-          data={appointments}
+          data={appointments.filter(app => 
+            statusFilter === 'All' || 
+            app.status?.toLowerCase() === statusFilter.toLowerCase()
+          )}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#6a11cb"
+            />
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons 
-                name="calendar-outline" 
-                size={64} 
-                color="#888" 
-                style={styles.emptyIcon}
-              />
-              <Text style={styles.emptyText}>No appointments yet</Text>
+              <Ionicons name="calendar" size={48} color="#ccc" />
+              <Text style={styles.emptyText}>No appointments found</Text>
               <TouchableOpacity 
                 style={styles.bookButton}
                 onPress={handleBookAppointment}
               >
-                <Text style={styles.bookButtonText}>Book an Appointment</Text>
+                <Text style={styles.bookButtonText}>Book New Appointment</Text>
               </TouchableOpacity>
             </View>
           }
-          contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
+          contentContainerStyle={styles.listContainer}
         />
-      </View>
+      </LinearGradient>
     </SafeAreaView>
   );
 };
@@ -182,103 +287,164 @@ const AppointmentsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F7F9FC',
-    paddingTop: 20,
   },
-  card: {
+  background: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  header: {
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  searchContainer: {
+    marginBottom: 8,
+  },
+  searchInput: {
     backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  filterScrollContainer: {
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
+  filterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#ddd',
+    marginRight: 8,
+  },
+  activeFilter: {
+    backgroundColor: '#6a11cb',
+  },
+  filterButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  listContainer: {
+    paddingBottom: 20,
+  },
+  appointmentCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
     padding: 16,
-    borderRadius: 16,
-    marginBottom: 16,
-    marginHorizontal: 10,
+    marginBottom: 12,
     elevation: 3,
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  specialty: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 2,
-  },
-  datetime: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#444',
-    marginBottom: 10,
-  },
-  actions: {
+  cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
-    gap: 10,
-  },
-  cancelBtn: {
-    flexDirection: 'row',
-    backgroundColor: '#FF6B6B',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
     alignItems: 'center',
-    gap: 6,
-  },
-  editBtn: {
-    flexDirection: 'row',
-    backgroundColor: '#007BFF',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    gap: 6,
-  },
-  actionText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  emptyIcon: {
-    marginBottom: 16,
-    opacity: 0.6,
-  },
-  emptyText: {
-    textAlign: 'center',
-    fontSize: 18,
-    color: '#666',
-    marginBottom: 24,
-  },
-  statusText: {
-    fontWeight: '600',
-    fontSize: 14,
     marginBottom: 8,
   },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#6a11cb',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  avatarText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  headerText: {
+    flex: 1,
+  },
+  patientName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    color: '#fff',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  detailsContainer: {
+    marginTop: 8,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  detailIcon: {
+    marginRight: 6,
+  },
+  detailText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 10,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#007BFF',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  editButtonText: {
+    color: '#fff',
+    marginLeft: 6,
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F44336',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  cancelButtonText: {
+    color: '#fff',
+    marginLeft: 6,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 8,
+  },
   bookButton: {
-    backgroundColor: '#4a90e2',
+    backgroundColor: '#6a11cb',
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
-    alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
+    marginTop: 16,
   },
   bookButtonText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 16,
   },
 });
 

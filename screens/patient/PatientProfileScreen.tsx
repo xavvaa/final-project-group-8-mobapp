@@ -9,7 +9,6 @@ import { RootStackParamList } from '../../App'; // Make sure this is properly ex
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { globalStyles } from '../../globalStyles'; 
-
 // Define your navigation types
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Profile'>;
 
