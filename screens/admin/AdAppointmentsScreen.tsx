@@ -8,12 +8,14 @@ import {
   TouchableOpacity,
   Alert,
   RefreshControl,
-  TextInput
+  TextInput, 
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { notifyUpdates } from '../../data/sharedState';
+import * as Notifications from 'expo-notifications';
+
 
 type Appointment = {
   id: string;
@@ -40,10 +42,8 @@ const AdAppointmentsScreen = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [sortOption, setSortOption] = useState<SortOption>('dateAsc');
 
-  // Helper function to parse appointment dates consistently
   const parseAppointmentDate = (appointment: Appointment): number => {
     try {
-      // Assuming date is in YYYY-MM-DD format and time is in HH:MM format
       const [year, month, day] = appointment.date.split('-');
       const [hours, minutes] = appointment.time.split(':');
       return new Date(
@@ -55,7 +55,7 @@ const AdAppointmentsScreen = () => {
       ).getTime();
     } catch (e) {
       console.error('Error parsing date:', e);
-      return 0; // Fallback value
+      return 0; 
     }
   };
 
@@ -140,17 +140,22 @@ const filterAppointments = (data: Appointment[], query: string, status: string) 
         {
           text: 'Yes',
           onPress: async () => {
-            try {
-              const updatedAppointments = appointments.map(app =>
-                app.id === id ? { ...app, status: 'Declined' } : app
-              );
-              await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
-              setAppointments(updatedAppointments);
-              filterAppointments(updatedAppointments, searchQuery, statusFilter);
-            } catch (error) {
-              console.error('Error declining appointment:', error);
-            }
-          }
+  try {
+    const declinedApp = appointments.find(app => app.id === id);
+    const updatedAppointments = appointments.map(app =>
+      app.id === id ? { ...app, status: 'Declined' } : app
+    );
+    await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
+    setAppointments(updatedAppointments);
+    filterAppointments(updatedAppointments, searchQuery, statusFilter);
+
+    const title = 'Appointment Declined';
+    const body = `Your appointment with Dr. ${declinedApp?.doctor} on ${declinedApp?.date} at ${declinedApp?.time} was declined.`;
+    await sendNotification(title, body, declinedApp?.patientEmail);
+  } catch (error) {
+    console.error('Error declining appointment:', error);
+  }
+}
         }
       ]
     );
@@ -162,7 +167,7 @@ const filterAppointments = (data: Appointment[], query: string, status: string) 
     if (!appointmentToApprove) return;
 
     const updatedAppointments = appointments.map(app =>
-      app.id === id ? { ...app, status: 'Confirmed' } : app
+      app.id === id ? { ...app, status: 'approved' } : app
     );
 
     const storedDoctors = await AsyncStorage.getItem('doctors');
@@ -189,13 +194,16 @@ const filterAppointments = (data: Appointment[], query: string, status: string) 
       }
     }
 
-    await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
+        await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
     setAppointments(updatedAppointments);
     filterAppointments(updatedAppointments, searchQuery, statusFilter);
-    Alert.alert('Success', 'Appointment approved successfully');
-    
-    // Notify all subscribers that appointments were updated
-    notifyUpdates();
+
+    const title = 'Appointment Approved';
+    const body = `Your appointment with Dr. ${appointmentToApprove.doctor} on ${appointmentToApprove.date} at ${appointmentToApprove.time} has been confirmed.`;
+    await sendNotification(title, body, appointmentToApprove.patientEmail);
+
+    notifyUpdates(); 
+
   } catch (error) {
     console.error('Error approving appointment:', error);
     Alert.alert('Error', 'Failed to approve appointment');
@@ -204,7 +212,7 @@ const filterAppointments = (data: Appointment[], query: string, status: string) 
 
   const getStatusColor = (status: string) => {
     switch ((status || '').toLowerCase()) {
-      case 'confirmed': return '#4CAF50';
+      case 'approved': return '#4CAF50';
       case 'pending': return '#FF9800';
       case 'declined': return '#F44336';
       case 'cancelled': return '#F44336';
@@ -217,6 +225,38 @@ const filterAppointments = (data: Appointment[], query: string, status: string) 
     const names = name.split(' ');
     return names.slice(0, 2).map(n => n[0]).join('').toUpperCase();
   };
+
+  const sendNotification = async (title: string, body: string, patientEmail?: string) => {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title,
+      body,
+    },
+    trigger: null,
+  });
+
+  if (patientEmail) {
+    try {
+      const key = `notifications_${patientEmail}`;
+      const stored = await AsyncStorage.getItem(key);
+      const existing = stored ? JSON.parse(stored) : [];
+
+      const newNotification = {
+        id: Date.now().toString(),
+        title,
+        message: body,
+        timestamp: new Date().toISOString(),
+        read: false,
+      };
+
+      const updated = [newNotification, ...existing];
+      await AsyncStorage.setItem(key, JSON.stringify(updated));
+    } catch (e) {
+      console.error('Error saving patient notification:', e);
+    }
+  }
+};
+
 
   const renderAppointmentItem = ({ item }: { item: Appointment }) => (
     <View style={styles.appointmentCard}>

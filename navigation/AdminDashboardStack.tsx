@@ -1,8 +1,7 @@
-// navigation/AdminDashboardStack.tsx
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
-import AdNotificationScreen from '../screens/admin/AdNotificationScreen'; // or wherever it's located
+import AdNotificationScreen from '../screens/admin/AdNotificationScreen'; 
 
 export type AdminDashboardStackParamList = {
   DashboardHome: undefined;

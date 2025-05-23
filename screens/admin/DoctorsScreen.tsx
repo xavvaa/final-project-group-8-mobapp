@@ -93,10 +93,8 @@ const [tempTime, setTempTime] = useState(new Date());
 useEffect(() => {
   loadDoctors();
   
-  // Subscribe to updates
   const unsubscribe = subscribeToUpdates(loadDoctors);
   
-  // Cleanup subscription on unmount
   return () => {
     unsubscribe();
   };
@@ -147,7 +145,6 @@ useEffect(() => {
             text: "Don't Save",
             style: 'destructive',
             onPress: () => {
-              // Revert to the original state from storage
               AsyncStorage.getItem('doctors').then(savedDoctors => {
                 if (savedDoctors) {
                   const parsedDoctors = JSON.parse(savedDoctors) as Doctor[];
@@ -170,7 +167,7 @@ useEffect(() => {
           {
             text: 'Cancel',
             style: 'cancel',
-            onPress: () => { } // Stay in edit mode
+            onPress: () => { } 
           }
         ]
       );
@@ -232,33 +229,31 @@ useEffect(() => {
     const markedDates: { [date: string]: any } = {};
     const today = new Date().toISOString().split('T')[0];
 
-    // Mark unavailable dates (keeping your preferred styling)
     Object.keys(selectedDoctor.unavailableDates || {}).forEach(date => {
       markedDates[date] = {
         marked: true,
         dotColor: '#ff4444',
         disabled: true,
         disableTouchEvent: !isEditing,
-        selected: selectedDate === date, // Always show selection
-        selectedColor: isEditing ? '#ff4444' : '#E3F2FD', // Lighter blue for normal view
+        selected: selectedDate === date, 
+        selectedColor: isEditing ? '#ff4444' : '#E3F2FD', 
         customStyles: {
           container: {
-            backgroundColor: isEditing ? '#ffeeee' : '#fafafa', // Your style + light gray for normal
+            backgroundColor: isEditing ? '#ffeeee' : '#fafafa', 
             borderColor: isEditing ? '#ff4444' : '#dddddd',
             borderWidth: isEditing ? 1 : 0.5,
-            opacity: date < today ? 0.6 : 1 // Dim past dates
+            opacity: date < today ? 0.6 : 1 
           },
           text: {
             color: selectedDate === date
               ? (isEditing ? 'white' : 'black')
-              : '#d2d2d2', // Gray text for unavailable
+              : '#d2d2d2', 
             fontWeight: selectedDate === date ? 'bold' : 'normal'
           }
         }
       };
     });
 
-    // Mark dates with bookings
     Object.keys(selectedDoctor.bookings || {}).forEach(date => {
       if (selectedDoctor.unavailableDates[date]) return;
 
@@ -282,7 +277,6 @@ useEffect(() => {
       };
     });
 
-    // Ensure selected date styling
     if (selectedDate) {
       const isUnavailable = selectedDoctor.unavailableDates[selectedDate];
 
@@ -296,11 +290,11 @@ useEffect(() => {
           container: {
             backgroundColor: isEditing
               ? (isUnavailable ? '#ffeeee' : '#e3f2fd')
-              : '#E3F2FD', // Light blue background in normal view
+              : '#E3F2FD', 
             borderWidth: isEditing ? 2 : 1,
             borderColor: isEditing
               ? (isUnavailable ? '#ff4444' : '#4a90e2')
-              : '#4a90e2' // Blue border in normal view
+              : '#4a90e2' 
           },
           text: {
             color: isEditing ? 'white' : 'black',
@@ -358,24 +352,41 @@ useEffect(() => {
     );
   };
 
-  const renderDoctorItem = ({ item }: { item: Doctor }) => (
+const getInitials = (name: string) => {
+  const names = name.trim().split(' ');
+  if (names.length === 1) return names[0].charAt(0).toUpperCase();
+  return (names[0].charAt(0) + names[1].charAt(0)).toUpperCase();
+};
+
+
+const renderDoctorItem = ({ item }: { item: Doctor }) => {
+  return (
     <TouchableOpacity
       style={styles.doctorCard}
       onPress={() => {
         setSelectedDoctor(item);
         setSelectedDate('');
         setIsEditing(false);
-        setHasUnsavedChanges(false);
+        setSelectedBooking(null);
       }}
     >
-      <Image source={{ uri: item.image }} style={styles.doctorImage} />
+      {item.photoUrl ? (
+        <Image source={{ uri: item.photoUrl }} style={styles.doctorPhoto} />
+      ) : (
+        <View style={styles.initialsCircle}>
+          <Text style={styles.initialsText}>{getInitials(item.name)}</Text>
+        </View>
+      )}
+
       <View style={styles.doctorInfo}>
         <Text style={styles.doctorName}>{item.name}</Text>
         <Text style={styles.doctorSpecialty}>{item.specialty}</Text>
+        <Text style={styles.doctorExperience}>{item.experience} years experience</Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color="#666" />
     </TouchableOpacity>
   );
+};
+
 
   const renderBookingModal = () => (
     <Modal
@@ -558,13 +569,19 @@ useEffect(() => {
                   )}
                 </View>
               </View>
+<View style={styles.doctorDetails}>
+  {selectedDoctor?.image ? (
+    <Image source={{ uri: selectedDoctor.image }} style={styles.detailImage} />
+  ) : (
+    <View style={styles.initialsCircle}>
+      <Text style={styles.initialsText}>{getInitials(selectedDoctor?.name || '')}</Text>
+    </View>
+  )}
+  <Text style={styles.detailName}>{selectedDoctor?.name}</Text>
+  <Text style={styles.detailSpecialty}>{selectedDoctor?.specialty}</Text>
+  <Text style={styles.detailBio}>{selectedDoctor?.bio}</Text>
+</View>
 
-              <View style={styles.doctorDetails}>
-                <Image source={{ uri: selectedDoctor?.image || '' }} style={styles.detailImage} />
-                <Text style={styles.detailName}>{selectedDoctor?.name}</Text>
-                <Text style={styles.detailSpecialty}>{selectedDoctor?.specialty}</Text>
-                <Text style={styles.detailBio}>{selectedDoctor?.bio}</Text>
-              </View>
 
               <Text style={styles.sectionTitle}>Set Unavailable Dates</Text>
               <Calendar
@@ -977,6 +994,21 @@ timePickerTitle: {
 addButtonDisabled: {
   backgroundColor: '#cccccc',
 },
+initialsCircle: {
+  width: 80,
+  height: 80,
+  borderRadius: 40,
+  backgroundColor: '#4a90e2',  
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+
+initialsText: {
+  color: 'white',
+  fontSize: 28,
+  fontWeight: 'bold',
+},
+
 });
 
 export default DoctorsScreen;

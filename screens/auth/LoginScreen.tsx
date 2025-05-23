@@ -63,7 +63,6 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     setIsFormValid(noErrors && allTouched && allFilled);
   }, [errors, touched, email, password]);
 
-  // In LoginScreen.tsx
   const handleLogin = async () => {
     if (!isFormValid) {
       Alert.alert('Error', 'Please fix the errors in the form.');
@@ -73,18 +72,15 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     setLoading(true);
   
     try {
-      // Admin login (hardcoded for demo - remove in production)
       if (email === 'admin@gmail.com' && password === 'admin123') {
         await AsyncStorage.setItem('userRole', 'admin');
         navigation.replace('AdminTabs');
         return;
       }
   
-      // Patient login
       const usersJSON = await AsyncStorage.getItem('registeredUsers');
       const users = usersJSON ? JSON.parse(usersJSON) : [];
       
-      // Find the user with matching email (case insensitive)
       const user = users.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
   
       if (!user) {
@@ -92,13 +88,11 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         return;
       }
   
-      // Check the password for the found user
       if (password !== user.password) {
         Alert.alert('Error', 'Invalid password');
         return;
       }
   
-      // Successful login
       await AsyncStorage.setItem('userRole', 'patient');
       await AsyncStorage.setItem('currentUser', JSON.stringify(user));
       navigation.replace('PatientTabs');

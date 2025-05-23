@@ -22,7 +22,7 @@ const AdminDashboardScreen = () => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     todayAppointments: 0,
-    activeDoctors: 2, // still hardcoded unless you have a source
+    activeDoctors: 2, 
     registeredPatients: 0
   });
 

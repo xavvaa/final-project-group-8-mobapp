@@ -7,8 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 type Notification = {
   id: string;
   title: string;
-  message?: string;  // make optional
-  body?: string;     // add body as optional alternative
+  message?: string;  
+  body?: string;     
   read: boolean;
   timestamp: string;
 };

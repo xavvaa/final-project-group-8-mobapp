@@ -6,16 +6,33 @@ import DoctorsScreen from '../screens/admin/DoctorsScreen';
 import AppointmentsScreen from '../screens/admin/AdAppointmentsScreen';
 import PatientsScreen from '../screens/admin/AdPatientsScreen';
 import MoreScreen from '../screens/admin/MoreScreen';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
 const Tab = createBottomTabNavigator();
 
 const AdminTabs = () => {
+  const navigation = useNavigation();
+
+ const handleLogout = async () => {
+  try {
+    await AsyncStorage.multiRemove(['currentUser', 'authToken']); 
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Login' }],
+    });
+  } catch (error) {
+    console.error('Failed to logout properly', error);
+  }
+};
+
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
-            let iconName: keyof typeof Ionicons.glyphMap;
+          let iconName: keyof typeof Ionicons.glyphMap;
 
           switch (route.name) {
             case 'Dashboard':
@@ -30,26 +47,47 @@ const AdminTabs = () => {
             case 'Patients':
               iconName = focused ? 'people' : 'people-outline';
               break;
-            case 'More':
-              iconName = focused ? 'menu' : 'menu-outline';
+            case 'Log out':
+              iconName = focused ? 'log-out' : 'log-out-outline';
               break;
             default:
               iconName = 'help';
           }
 
-      return <Ionicons name={iconName as keyof typeof Ionicons.glyphMap} size={size} color={color} />;
-
+          return (
+            <Ionicons
+              name={iconName as keyof typeof Ionicons.glyphMap}
+              size={size}
+              color={color}
+            />
+          );
         },
         tabBarActiveTintColor: '#007BFF',
         tabBarInactiveTintColor: 'gray',
         headerShown: false,
       })}
     >
-     <Tab.Screen name="Dashboard" component={AdminDashboardStack} />
+      <Tab.Screen name="Dashboard" component={AdminDashboardStack} />
       <Tab.Screen name="Doctors" component={DoctorsScreen} />
       <Tab.Screen name="Appointments" component={AppointmentsScreen} />
       <Tab.Screen name="Patients" component={PatientsScreen} />
-      <Tab.Screen name="More" component={MoreScreen} />
+      <Tab.Screen
+        name="Log out"
+        component={MoreScreen}
+        listeners={{
+          tabPress: (e) => {
+            e.preventDefault(); 
+            Alert.alert('Logout', 'Are you sure you want to logout?', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Logout',
+                style: 'destructive',
+                onPress: handleLogout,
+              },
+            ]);
+          },
+        }}
+      />
     </Tab.Navigator>
   );
 };

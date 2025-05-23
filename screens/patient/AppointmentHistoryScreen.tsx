@@ -13,7 +13,7 @@ import { useFocusEffect, useRoute, useNavigation } from '@react-navigation/nativ
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Notifications from 'expo-notifications';
+import { Swipeable } from 'react-native-gesture-handler';
 
 import { AppointmentsStackParamList } from '../../navigation/AppointmentsStackNavigator';
 
@@ -32,6 +32,8 @@ type Appointment = {
 };
 
 const AppointmentsScreen: React.FC = () => {
+  const [removedAppointments, setRemovedAppointments] = useState<string[]>([]);
+
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
@@ -58,6 +60,20 @@ const AppointmentsScreen: React.FC = () => {
     }
   };
 
+  const renderRightActions = (id: string) => {
+  return (
+    <TouchableOpacity
+      style={styles.deleteButton}
+      onPress={() => {
+        setAppointments((prev) => prev.filter((appt) => appt.id !== id));
+      }}
+    >
+      <Ionicons name="close-outline" size={30} color="#fff" />
+      <Text style={styles.deleteButtonText}>Remove</Text>
+    </TouchableOpacity>
+  );
+};
+
   const deleteAppointment = (id: string) => {
   Alert.alert(
     'Cancel Appointment',
@@ -70,49 +86,20 @@ const AppointmentsScreen: React.FC = () => {
           try {
             const currentUserData = await AsyncStorage.getItem('currentUser');
             const currentUser = currentUserData ? JSON.parse(currentUserData) : null;
-            if (!currentUser) return;
 
             const saved = await AsyncStorage.getItem('appointments');
-            const allAppointments: Appointment[] = saved ? JSON.parse(saved) : [];
+            const allAppointments = saved ? JSON.parse(saved) : [];
 
-            // Mark appointment as canceled
-            const updatedAll = allAppointments.map((appt) =>
-              appt.id === id ? { ...appt, status: 'canceled' } : appt
+            const updatedAll = allAppointments.map((item: Appointment) =>
+              item.id === id ? { ...item, status: 'canceled' } : item
             );
 
             const updatedUserAppointments = updatedAll.filter(
-              (appt) => appt.userId === currentUser.id && appt.status !== 'canceled'
+              (item: Appointment) => item.userId === currentUser?.id
             );
 
             await AsyncStorage.setItem('appointments', JSON.stringify(updatedAll));
             setAppointments(updatedUserAppointments);
-
-            // Add admin notification
-            const existingNotifsRaw = await AsyncStorage.getItem('adminNotifications');
-            const existingNotifs = existingNotifsRaw ? JSON.parse(existingNotifsRaw) : [];
-
-            const canceledAppt = allAppointments.find((appt) => appt.id === id);
-
-            const newNotif = {
-              id: Date.now().toString(),
-              title: 'Appointment Canceled',
-              message: `Patient ${currentUser.name} canceled their appointment with Dr. ${canceledAppt?.doctorName} on ${canceledAppt?.date} at ${canceledAppt?.time}.`,
-              read: false,
-              timestamp: new Date().toISOString(),
-            };
-
-            const updatedNotifs = [newNotif, ...existingNotifs];
-            await AsyncStorage.setItem('adminNotifications', JSON.stringify(updatedNotifs));
-
-            // Send local push notification to patient
-            await Notifications.scheduleNotificationAsync({
-              content: {
-                title: 'Appointment Canceled',
-                body: `Your appointment with Dr. ${canceledAppt?.doctorName} on ${canceledAppt?.date} at ${canceledAppt?.time} has been canceled.`,
-                sound: true,
-              },
-              trigger: null,
-            });
           } catch (error) {
             console.error('Failed to cancel appointment:', error);
           }
@@ -156,6 +143,10 @@ const AppointmentsScreen: React.FC = () => {
   };
 
   const renderItem = ({ item }: { item: Appointment }) => (
+  <Swipeable
+    renderRightActions={() => renderRightActions(item.id)}
+    overshootRight={false}
+  >
     <View style={styles.card}>
       <Text style={styles.title}>{item.doctorName}</Text>
       <Text style={styles.specialty}>{item.specialty}</Text>
@@ -165,19 +156,22 @@ const AppointmentsScreen: React.FC = () => {
       <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
         {item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1) : 'Pending'}
       </Text>
-  
-      <View style={styles.actions}>
-        <TouchableOpacity onPress={() => handleEdit(item)} style={styles.editBtn}>
-          <Ionicons name="create-outline" size={18} color="#fff" />
-          <Text style={styles.actionText}>Reschedule</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => deleteAppointment(item.id)} style={styles.cancelBtn}>
-          <Ionicons name="trash-outline" size={18} color="#fff" />
-          <Text style={styles.actionText}>Cancel</Text>
-        </TouchableOpacity>
-      </View>
+
+      {(item.status !== 'approved' && item.status !== 'canceled') && (
+        <View style={styles.actions}>
+          <TouchableOpacity onPress={() => handleEdit(item)} style={styles.editBtn}>
+            <Ionicons name="create-outline" size={18} color="#fff" />
+            <Text style={styles.actionText}>Reschedule</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => deleteAppointment(item.id)} style={styles.cancelBtn}>
+            <Ionicons name="trash-outline" size={18} color="#fff" />
+            <Text style={styles.actionText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
-  );
+  </Swipeable>
+);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -310,6 +304,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+  },
+  deleteButton: {
+    backgroundColor: '#dc3545',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 100,
+    // Ensure the button takes full height of the card
+    marginVertical: 8,
+    borderRadius: 8,
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    marginTop: 4,
   },
 });
 

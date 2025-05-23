@@ -160,63 +160,18 @@ useEffect(() => {
     const saved = await AsyncStorage.getItem('appointments');
     const allAppointments: Appointment[] = saved ? JSON.parse(saved) : [];
 
-<<<<<<< HEAD
     const isDuplicate = allAppointments.some(
       (appt) =>
         appt.userId === currentUser.id &&
         appt.doctorId === doctor.id &&
-        appt.date === selectedDate
+        appt.date === selectedDate &&
+        appt.time === selectedTime
     );
-=======
-      const saved = await AsyncStorage.getItem('appointments');
-      const allAppointments: Appointment[] = saved ? JSON.parse(saved) : [];
-
-      const isDuplicate = allAppointments.some(
-        (appt) =>
-          appt.userId === currentUser.id &&
-          appt.doctorId === doctor.id &&
-          appt.date === selectedDate
-      );
-
-      if (isDuplicate) {
-        Alert.alert(
-          'Duplicate Booking',
-          `You have already booked ${doctor.name} on ${selectedDate}.`
-        );
-        return;
-      }
-
-      const newAppointment: Appointment = {
-        id: Date.now().toString(),
-        userId: currentUser.id,
-        userName: currentUser.name,
-        doctorId: doctor.id,
-        doctorName: doctor.name,
-        date: selectedDate,
-        time: selectedTime,
-        patientEmail: currentUser.email || '',
-        patientPhone: currentUser.phone || '',
-        notes: '',
-        status: 'Pending',
-      };
-
-      const updatedAppointments = [...allAppointments, newAppointment];
-
-      await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
-      setAppointments(
-        updatedAppointments.filter((appt) => appt.userId === currentUser.id)
-      );
->>>>>>> 5c42403e1975cd36348cd22119f5ca1d82e59393
 
     if (isDuplicate) {
       Alert.alert(
-<<<<<<< HEAD
         'Duplicate Booking',
-        `You have already booked Dr. ${doctor.name} on ${selectedDate}.`
-=======
-        'Success',
-        `Appointment booked with ${doctor.name} on ${selectedDate} at ${selectedTime}`
->>>>>>> 5c42403e1975cd36348cd22119f5ca1d82e59393
+        `You have already booked Dr. ${doctor.name} on ${selectedDate} at ${selectedTime}.`
       );
       return;
     }
@@ -236,13 +191,10 @@ useEffect(() => {
     };
 
     const updatedAppointments = [...allAppointments, newAppointment];
-
     await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
-    setAppointments(
-      updatedAppointments.filter((appt) => appt.userId === currentUser.id)
-    );
+    setAppointments(updatedAppointments.filter((appt) => appt.userId === currentUser.id));
 
-    // --- Save admin notification ---
+    // --- Add to admin notifications ---
     const adminNotificationsRaw = await AsyncStorage.getItem('adminNotifications');
     const adminNotifications = adminNotificationsRaw ? JSON.parse(adminNotificationsRaw) : [];
 
@@ -256,15 +208,15 @@ useEffect(() => {
 
     const updatedNotifications = [newNotification, ...adminNotifications];
     await AsyncStorage.setItem('adminNotifications', JSON.stringify(updatedNotifications));
-    // ------------------------------
 
+    // --- Show local notification ---
     await Notifications.scheduleNotificationAsync({
       content: {
         title: "Booking Sent! ✅",
-        body: `Appointment with Dr. ${doctor.name} on ${selectedDate} at ${selectedTime} is successfully sent!.`,
+        body: `Appointment with Dr. ${doctor.name} on ${selectedDate} at ${selectedTime} is successfully sent!`,
         sound: true,
       },
-      trigger: null, // Immediate notification
+      trigger: null,
     });
 
     setModalVisible(false);
@@ -274,6 +226,7 @@ useEffect(() => {
     console.error(error);
   }
 };
+
 
 
   return (

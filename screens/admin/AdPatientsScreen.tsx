@@ -32,11 +32,11 @@ const AdPatientsScreen = () => {
   const fetchPatients = async () => {
     try {
       const storedPatients = await AsyncStorage.getItem('registeredUsers');
-      console.log('Stored patients data:', storedPatients); // Debug log
+      console.log('Stored patients data:', storedPatients); 
       
       if (storedPatients) {
         const parsedPatients = JSON.parse(storedPatients);
-        console.log('Parsed patients:', parsedPatients); // Debug log
+        console.log('Parsed patients:', parsedPatients); 
         setPatients(parsedPatients);
       } else {
         console.log('No patients found in storage');
