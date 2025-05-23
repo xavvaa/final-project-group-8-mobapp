@@ -5,10 +5,12 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
 import PatientHomeScreen from '../screens/patient/PatientHomeScreen';
-import AppointmentsScreen from '../screens/patient/AppointmentsScreen';
+import AppointmentsScreen from '../screens/patient/AppointmentHistoryScreen';
 import NotificationsScreen from '../screens/patient/NotificationsScreen';
 import AppointmentHistoryScreen from '../screens/patient/AppointmentHistoryScreen';
 import PatientProfileScreen from '../screens/patient/PatientProfileScreen';
+import PatientStackNavigator from './PatientStackNavigator';
+import AppointmentsStackNavigator from './AppointmentsStackNavigator';
 
 const Tab = createBottomTabNavigator();
 
@@ -44,10 +46,9 @@ const PatientTabNavigator = () => {
         headerShown: false,
       })}
     >
-      <Tab.Screen name="Home" component={PatientHomeScreen} />
-      <Tab.Screen name="Appointments" component={AppointmentsScreen} />
+      <Tab.Screen name="Home" component={PatientStackNavigator} />
+      <Tab.Screen name="Appointments" component={AppointmentsStackNavigator} />
       <Tab.Screen name="Notifications" component={NotificationsScreen} />
-      <Tab.Screen name="History" component={AppointmentHistoryScreen} />
       <Tab.Screen name="Profile" component={PatientProfileScreen} />
     </Tab.Navigator>
   );
