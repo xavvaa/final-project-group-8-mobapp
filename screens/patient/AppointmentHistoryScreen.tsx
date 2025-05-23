@@ -32,7 +32,7 @@ type Appointment = {
   specialty?: string;
   date: string;
   time: string;
-  status?: 'pending' | 'approved' | 'canceled';
+  status?: 'pending' | 'confirmed' | 'canceled';
   patientName?: string;
   patientEmail?: string;
   patientPhone?: string;
@@ -189,25 +189,30 @@ const AppointmentsScreen: React.FC = () => {
         )}
       </View>
 
-      {item.status !== 'canceled' && (
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => handleEdit(item)}
-          >
-            <Ionicons name="create-outline" size={18} color="#fff" />
-            <Text style={styles.editButtonText}>Reschedule</Text>
-          </TouchableOpacity>
+{item.status !== 'canceled' && (
+  <View style={styles.actionButtons}>
+    {item.status === 'Pending' && (
+      <TouchableOpacity
+        style={styles.editButton}
+        onPress={() => handleEdit(item)}
+      >
+        <Ionicons name="create-outline" size={18} color="#fff" />
+        <Text style={styles.editButtonText}>Reschedule</Text>
+      </TouchableOpacity>
+    )}
 
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={() => deleteAppointment(item.id)}
-          >
-            <Ionicons name="trash-outline" size={18} color="#fff" />
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+    {item.status !== 'Declined' && (
+      <TouchableOpacity
+        style={styles.cancelButton}
+        onPress={() => deleteAppointment(item.id)}
+      >
+        <Ionicons name="trash-outline" size={18} color="#fff" />
+        <Text style={styles.cancelButtonText}>Cancel</Text>
+      </TouchableOpacity>
+    )}
+  </View>
+)}
+
     </View>
   );
 
@@ -235,7 +240,7 @@ const AppointmentsScreen: React.FC = () => {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterScrollContainer}
           >
-            {['All', 'Pending', 'Confirmed', 'Canceled'].map(status => (
+            {['All', 'Pending', 'Confirmed', 'Canceled', 'Declined'].map(status => (
               <TouchableOpacity
                 key={status}
                 style={[
@@ -252,10 +257,11 @@ const AppointmentsScreen: React.FC = () => {
         </View>
 
         <FlatList
-          data={appointments.filter(app => 
-            statusFilter === 'All' || 
-            app.status?.toLowerCase() === statusFilter.toLowerCase()
-          )}
+          data={appointments.filter(app => {
+            const matchesStatus = statusFilter === 'All' || app.status?.toLowerCase() === statusFilter.toLowerCase();
+            const matchesSearch = app.doctorName?.toLowerCase().includes(searchQuery.toLowerCase());
+            return matchesStatus && matchesSearch;
+          })}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           refreshControl={
@@ -283,7 +289,6 @@ const AppointmentsScreen: React.FC = () => {
     </SafeAreaView>
   );
 };
-
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
