@@ -1,11 +1,12 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
+import AdminDashboardStack from '../navigation/AdminDashboardStack';
 import DoctorsScreen from '../screens/admin/DoctorsScreen';
 import AppointmentsScreen from '../screens/admin/AdAppointmentsScreen';
 import PatientsScreen from '../screens/admin/AdPatientsScreen';
 import MoreScreen from '../screens/admin/MoreScreen';
+
 
 const Tab = createBottomTabNavigator();
 
@@ -14,7 +15,7 @@ const AdminTabs = () => {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
+            let iconName: keyof typeof Ionicons.glyphMap;
 
           switch (route.name) {
             case 'Dashboard':
@@ -36,14 +37,15 @@ const AdminTabs = () => {
               iconName = 'help';
           }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
+      return <Ionicons name={iconName as keyof typeof Ionicons.glyphMap} size={size} color={color} />;
+
         },
         tabBarActiveTintColor: '#007BFF',
         tabBarInactiveTintColor: 'gray',
         headerShown: false,
       })}
     >
-      <Tab.Screen name="Dashboard" component={AdminDashboardScreen} />
+     <Tab.Screen name="Dashboard" component={AdminDashboardStack} />
       <Tab.Screen name="Doctors" component={DoctorsScreen} />
       <Tab.Screen name="Appointments" component={AppointmentsScreen} />
       <Tab.Screen name="Patients" component={PatientsScreen} />

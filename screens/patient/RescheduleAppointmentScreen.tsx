@@ -8,11 +8,13 @@ import {
   Alert,
   SafeAreaView,
   ScrollView,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Calendar } from 'react-native-calendars';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import * as Notifications from 'expo-notifications';
 import { AppointmentsStackParamList } from '../../navigation/AppointmentsStackNavigator';
 
 type RescheduleNavigationProp = StackNavigationProp<AppointmentsStackParamList, 'RescheduleAppointment'>;
@@ -45,6 +47,22 @@ const RescheduleAppointmentScreen: React.FC = () => {
   const [selectedTime, setSelectedTime] = useState(oldAppointment.time);
   const [modalVisible, setModalVisible] = useState(false);
 
+  // Setup notification permissions
+  useEffect(() => {
+    const setupNotifications = async () => {
+      await Notifications.requestPermissionsAsync();
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.DEFAULT,
+        });
+      }
+    };
+
+    setupNotifications();
+  }, []);
+
+  // Fetch doctor info
   useEffect(() => {
     const fetchDoctorInfo = async () => {
       try {
@@ -85,29 +103,63 @@ const RescheduleAppointmentScreen: React.FC = () => {
   };
 
   const handleReschedule = async () => {
-    try {
-      const data = await AsyncStorage.getItem('appointments');
-      let appointments: Appointment[] = data ? JSON.parse(data) : [];
-  
-      const updatedAppointments = appointments.map((appt) =>
-        appt.id === oldAppointment.id
-          ? { ...appt, date: selectedDate, time: selectedTime }
-          : appt
-      );
-  
-      await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
-      
-      setModalVisible(false); // <-- Hide modal immediately
-  
-      Alert.alert('Success', 'Appointment rescheduled successfully.', [
-        { text: 'OK', onPress: () => navigation.replace('Appointments', { updated: true }) },
-      ]);
-    } catch (error) {
-      console.error('Failed to reschedule appointment:', error);
-      Alert.alert('Error', 'Could not update the appointment.');
+  if (!selectedDate || !selectedTime) {
+    Alert.alert('Missing Information', 'Please select both a date and a time.');
+    return;
+  }
+
+  try {
+    const currentUserData = await AsyncStorage.getItem('currentUser');
+    if (!currentUserData) {
+      Alert.alert('Error', 'No user logged in.');
+      return;
     }
-  };
-  
+    const currentUser = JSON.parse(currentUserData);
+
+    const data = await AsyncStorage.getItem('appointments');
+    const appointments: Appointment[] = data ? JSON.parse(data) : [];
+
+    const updatedAppointments = appointments.map((appt) =>
+      appt.id === oldAppointment.id
+        ? { ...appt, date: selectedDate, time: selectedTime }
+        : appt
+    );
+
+    await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
+
+    // Save admin notification
+    const existingNotifsRaw = await AsyncStorage.getItem('adminNotifications');
+    const existingNotifs = existingNotifsRaw ? JSON.parse(existingNotifsRaw) : [];
+
+    const newNotif = {
+      id: Date.now().toString(),
+      title: 'Appointment Rescheduled',
+      message: `Patient ${currentUser.name} rescheduled with Dr. ${oldAppointment.doctorName} on ${selectedDate} at ${selectedTime}.`,
+      read: false,
+      timestamp: new Date().toISOString(),
+    };
+
+    const updatedNotifs = [newNotif, ...existingNotifs];
+    await AsyncStorage.setItem('adminNotifications', JSON.stringify(updatedNotifs));
+
+    // Send local push notification to patient
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Appointment Rescheduled',
+        body: `Your appointment is now on ${selectedDate} at ${selectedTime}`,
+        sound: true,
+      },
+      trigger: null,
+    });
+
+    setModalVisible(false);
+    navigation.replace('Appointments', { updated: true });
+  } catch (error) {
+    console.error('Failed to reschedule appointment:', error);
+    Alert.alert('Error', 'Could not update the appointment.');
+  }
+};
+
 
   if (!doctor) {
     return (
@@ -116,7 +168,6 @@ const RescheduleAppointmentScreen: React.FC = () => {
       </SafeAreaView>
     );
   }
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>

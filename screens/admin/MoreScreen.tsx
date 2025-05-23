@@ -11,9 +11,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { AdminStackParamList } from '../../types/navigation';
 
-const AdminSettingsScreen = () => {
-  const navigation = useNavigation();
+
+type NavigationProp = NativeStackNavigationProp<AdminStackParamList>;
+
+const MoreScreen = () => {
+  const navigation = useNavigation<NavigationProp>();
+
 
   const handleLogout = async () => {
     Alert.alert(
@@ -42,27 +48,32 @@ const AdminSettingsScreen = () => {
     );
   };
 
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container}>
         <Text style={styles.header}>Admin Settings</Text>
-        
+       
         <View style={styles.section}>
           <View style={styles.sectionContent}>
             <TouchableOpacity
-              style={styles.option}
-              onPress={() => navigation.navigate('AdminProfile')}
-            >
-              <View style={styles.optionLeft}>
-                <Ionicons name="person" size={22} color="#666" />
-                <Text style={styles.optionText}>Profile</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
-            </TouchableOpacity>
+  style={styles.option}
+  onPress={() => navigation.navigate('AdminProfile')} 
+>
+
+  <View style={styles.optionLeft}>
+    <Ionicons name="person" size={22} color="#666" />
+    <Text style={styles.optionText}>Profile</Text>
+  </View>
+  <Ionicons name="chevron-forward" size={20} color="#999" />
+</TouchableOpacity>
+
+
           </View>
         </View>
 
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.logoutButton}
           onPress={handleLogout}
         >
@@ -73,6 +84,7 @@ const AdminSettingsScreen = () => {
     </SafeAreaView>
   );
 };
+
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -140,4 +152,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AdminSettingsScreen;
+
+export default MoreScreen;

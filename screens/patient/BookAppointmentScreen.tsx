@@ -8,12 +8,15 @@ import {
   Alert,
   ScrollView,
   SafeAreaView,
+  Platform
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Calendar, DateData } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import moment from 'moment';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import * as Notifications from 'expo-notifications';
+import * as Permissions from 'expo-permissions'
 
 // Define types for your navigation params
 type RootStackParamList = {
@@ -61,26 +64,41 @@ const DoctorBookingScreen: React.FC<DoctorBookingScreenProps> = ({
   const [modalVisible, setModalVisible] = useState<boolean>(false);
 
   useEffect(() => {
-    const loadAppointments = async () => {
-      try {
-        const currentUserData = await AsyncStorage.getItem('currentUser');
-        if (!currentUserData) return;
-
-        const currentUser = JSON.parse(currentUserData);
-        const saved = await AsyncStorage.getItem('appointments');
-        const allAppointments: Appointment[] = saved ? JSON.parse(saved) : [];
-
-        const userAppointments = allAppointments.filter(
-          (appt) => appt.userId === currentUser.id
+  (async () => {
+    if (Platform.OS !== 'web') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission required',
+          'Enable notifications to receive booking confirmations.'
         );
-
-        setAppointments(userAppointments);
-      } catch (error) {
-        console.error('Error loading appointments:', error);
       }
-    };
-    loadAppointments();
-  }, []);
+    }
+  })();
+}, []);
+
+useEffect(() => {
+  const loadAppointments = async () => {
+    try {
+      const currentUserData = await AsyncStorage.getItem('currentUser');
+      if (!currentUserData) return;
+
+      const currentUser = JSON.parse(currentUserData);
+      const saved = await AsyncStorage.getItem('appointments');
+      const allAppointments: Appointment[] = saved ? JSON.parse(saved) : [];
+
+      const userAppointments = allAppointments.filter(
+        (appt) => appt.userId === currentUser.id
+      );
+
+      setAppointments(userAppointments);
+    } catch (error) {
+      console.error('Error loading appointments:', error);
+    }
+  };
+  loadAppointments();
+}, []);
+
 
   const getMarkedDates = (): Record<string, any> => {
     const marked: Record<string, any> = {};
@@ -125,70 +143,92 @@ const DoctorBookingScreen: React.FC<DoctorBookingScreenProps> = ({
   };
 
   const confirmBooking = async () => {
-    if (!selectedDate || !selectedTime) {
-      Alert.alert('Missing Information', 'Please select both a date and a time slot.');
+  if (!selectedDate || !selectedTime) {
+    Alert.alert('Missing Information', 'Please select both a date and a time slot.');
+    return;
+  }
+
+  try {
+    const currentUserData = await AsyncStorage.getItem('currentUser');
+    if (!currentUserData) {
+      Alert.alert('Error', 'No user logged in.');
       return;
     }
 
-    try {
-      const currentUserData = await AsyncStorage.getItem('currentUser');
-      if (!currentUserData) {
-        Alert.alert('Error', 'No user logged in.');
-        return;
-      }
+    const currentUser = JSON.parse(currentUserData);
 
-      const currentUser = JSON.parse(currentUserData);
+    const saved = await AsyncStorage.getItem('appointments');
+    const allAppointments: Appointment[] = saved ? JSON.parse(saved) : [];
 
-      const saved = await AsyncStorage.getItem('appointments');
-      const allAppointments: Appointment[] = saved ? JSON.parse(saved) : [];
+    const isDuplicate = allAppointments.some(
+      (appt) =>
+        appt.userId === currentUser.id &&
+        appt.doctorId === doctor.id &&
+        appt.date === selectedDate
+    );
 
-      const isDuplicate = allAppointments.some(
-        (appt) =>
-          appt.userId === currentUser.id &&
-          appt.doctorId === doctor.id &&
-          appt.date === selectedDate
-      );
-
-      if (isDuplicate) {
-        Alert.alert(
-          'Duplicate Booking',
-          `You have already booked Dr. ${doctor.name} on ${selectedDate}.`
-        );
-        return;
-      }
-
-      const newAppointment: Appointment = {
-        id: Date.now().toString(),
-        userId: currentUser.id,
-        userName: currentUser.name,
-        doctorId: doctor.id,
-        doctorName: doctor.name,
-        date: selectedDate,
-        time: selectedTime,
-        patientEmail: currentUser.email || '',
-        patientPhone: currentUser.phone || '',
-        notes: '',
-        status: 'Pending',
-      };
-
-      const updatedAppointments = [...allAppointments, newAppointment];
-
-      await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
-      setAppointments(
-        updatedAppointments.filter((appt) => appt.userId === currentUser.id)
-      );
-
+    if (isDuplicate) {
       Alert.alert(
-        'Success',
-        `Appointment booked with Dr. ${doctor.name} on ${selectedDate} at ${selectedTime}`
+        'Duplicate Booking',
+        `You have already booked Dr. ${doctor.name} on ${selectedDate}.`
       );
-      setModalVisible(false);
-      navigation.goBack();
-    } catch (error) {
-      Alert.alert('Error', 'Could not save the appointment. Please try again.');
-      console.error(error);
+      return;
     }
-  };
+
+    const newAppointment: Appointment = {
+      id: Date.now().toString(),
+      userId: currentUser.id,
+      userName: currentUser.name,
+      doctorId: doctor.id,
+      doctorName: doctor.name,
+      date: selectedDate,
+      time: selectedTime,
+      patientEmail: currentUser.email || '',
+      patientPhone: currentUser.phone || '',
+      notes: '',
+      status: 'Pending',
+    };
+
+    const updatedAppointments = [...allAppointments, newAppointment];
+
+    await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
+    setAppointments(
+      updatedAppointments.filter((appt) => appt.userId === currentUser.id)
+    );
+
+    // --- Save admin notification ---
+    const adminNotificationsRaw = await AsyncStorage.getItem('adminNotifications');
+    const adminNotifications = adminNotificationsRaw ? JSON.parse(adminNotificationsRaw) : [];
+
+    const newNotification = {
+      id: Date.now().toString(),
+      title: 'New Appointment Booking',
+      message: `User ${currentUser.name} booked Dr. ${doctor.name} on ${selectedDate} at ${selectedTime}.`,
+      read: false,
+      timestamp: new Date().toISOString(),
+    };
+
+    const updatedNotifications = [newNotification, ...adminNotifications];
+    await AsyncStorage.setItem('adminNotifications', JSON.stringify(updatedNotifications));
+    // ------------------------------
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Booking Sent! ✅",
+        body: `Appointment with Dr. ${doctor.name} on ${selectedDate} at ${selectedTime} is successfully sent!.`,
+        sound: true,
+      },
+      trigger: null, // Immediate notification
+    });
+
+    setModalVisible(false);
+    navigation.goBack();
+  } catch (error) {
+    Alert.alert('Error', 'Could not save the appointment. Please try again.');
+    console.error(error);
+  }
+};
+
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F2F5FA' }}>

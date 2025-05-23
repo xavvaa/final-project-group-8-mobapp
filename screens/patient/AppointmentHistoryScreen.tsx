@@ -13,6 +13,7 @@ import { useFocusEffect, useRoute, useNavigation } from '@react-navigation/nativ
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
 
 import { AppointmentsStackParamList } from '../../navigation/AppointmentsStackNavigator';
 
@@ -58,39 +59,69 @@ const AppointmentsScreen: React.FC = () => {
   };
 
   const deleteAppointment = (id: string) => {
-    Alert.alert(
-      'Cancel Appointment',
-      'Are you sure you want to cancel this appointment?',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes',
-          onPress: async () => {
-            try {
-              const currentUserData = await AsyncStorage.getItem('currentUser');
-              const currentUser = currentUserData ? JSON.parse(currentUserData) : null;
+  Alert.alert(
+    'Cancel Appointment',
+    'Are you sure you want to cancel this appointment?',
+    [
+      { text: 'No', style: 'cancel' },
+      {
+        text: 'Yes',
+        onPress: async () => {
+          try {
+            const currentUserData = await AsyncStorage.getItem('currentUser');
+            const currentUser = currentUserData ? JSON.parse(currentUserData) : null;
+            if (!currentUser) return;
 
-              const saved = await AsyncStorage.getItem('appointments');
-              const allAppointments = saved ? JSON.parse(saved) : [];
+            const saved = await AsyncStorage.getItem('appointments');
+            const allAppointments: Appointment[] = saved ? JSON.parse(saved) : [];
 
-              const updatedAll = allAppointments.filter(
-                (item: Appointment) => item.id !== id
-              );
+            // Mark appointment as canceled
+            const updatedAll = allAppointments.map((appt) =>
+              appt.id === id ? { ...appt, status: 'canceled' } : appt
+            );
 
-              const updatedUserAppointments = updatedAll.filter(
-                (item: Appointment) => item.userId === currentUser?.id
-              );
+            const updatedUserAppointments = updatedAll.filter(
+              (appt) => appt.userId === currentUser.id && appt.status !== 'canceled'
+            );
 
-              await AsyncStorage.setItem('appointments', JSON.stringify(updatedAll));
-              setAppointments(updatedUserAppointments);
-            } catch (error) {
-              console.error('Failed to delete appointment:', error);
-            }
-          },
+            await AsyncStorage.setItem('appointments', JSON.stringify(updatedAll));
+            setAppointments(updatedUserAppointments);
+
+            // Add admin notification
+            const existingNotifsRaw = await AsyncStorage.getItem('adminNotifications');
+            const existingNotifs = existingNotifsRaw ? JSON.parse(existingNotifsRaw) : [];
+
+            const canceledAppt = allAppointments.find((appt) => appt.id === id);
+
+            const newNotif = {
+              id: Date.now().toString(),
+              title: 'Appointment Canceled',
+              message: `Patient ${currentUser.name} canceled their appointment with Dr. ${canceledAppt?.doctorName} on ${canceledAppt?.date} at ${canceledAppt?.time}.`,
+              read: false,
+              timestamp: new Date().toISOString(),
+            };
+
+            const updatedNotifs = [newNotif, ...existingNotifs];
+            await AsyncStorage.setItem('adminNotifications', JSON.stringify(updatedNotifs));
+
+            // Send local push notification to patient
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: 'Appointment Canceled',
+                body: `Your appointment with Dr. ${canceledAppt?.doctorName} on ${canceledAppt?.date} at ${canceledAppt?.time} has been canceled.`,
+                sound: true,
+              },
+              trigger: null,
+            });
+          } catch (error) {
+            console.error('Failed to cancel appointment:', error);
+          }
         },
-      ]
-    );
-  };
+      },
+    ]
+  );
+};
+
 
   useFocusEffect(
     useCallback(() => {

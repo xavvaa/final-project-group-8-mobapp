@@ -11,15 +11,29 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { AdminDashboardStackParamList } from '../../navigation/AdminDashboardStack';
+import NotificationIconWithBadge from '../../components/NotificationIconWithBadge';
+import { useLayoutEffect } from 'react';
+
 
 const AdminDashboardScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<StackNavigationProp<AdminDashboardStackParamList>>();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     todayAppointments: 0,
     activeDoctors: 2, // still hardcoded unless you have a source
     registeredPatients: 0
   });
+
+   useLayoutEffect(() => {
+  navigation.setOptions({
+    headerRight: () => (
+      <NotificationIconWithBadge onPress={() => navigation.navigate('AdNotificationScreen')} />
+    ),
+  });
+}, [navigation]);
+
 
   useFocusEffect(
     useCallback(() => {
@@ -65,9 +79,8 @@ const AdminDashboardScreen = () => {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Admin Dashboard</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Notifications')}>
-            <Ionicons name="notifications-outline" size={26} color="#4a90e2" />
-          </TouchableOpacity>
+          <NotificationIconWithBadge onPress={() => navigation.navigate('Notifications')} />
+
         </View>
 
         {/* Main Cards */}
