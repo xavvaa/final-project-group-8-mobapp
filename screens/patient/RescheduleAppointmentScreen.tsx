@@ -14,6 +14,7 @@ import { Calendar } from 'react-native-calendars';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AppointmentsStackParamList } from '../../navigation/AppointmentsStackNavigator';
+import { globalStyles } from '../../globalStyles'; 
 
 type RescheduleNavigationProp = StackNavigationProp<AppointmentsStackParamList, 'RescheduleAppointment'>;
 type RescheduleRouteProp = RouteProp<AppointmentsStackParamList, 'RescheduleAppointment'>;
@@ -111,14 +112,14 @@ const RescheduleAppointmentScreen: React.FC = () => {
 
   if (!doctor) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[globalStyles.safeArea, styles.safeArea]}>
         <Text style={{ textAlign: 'center', marginTop: 40 }}>Loading doctor info...</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[globalStyles.safeArea, styles.safeArea]}>
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.header}>Reschedule Appointment</Text>
 

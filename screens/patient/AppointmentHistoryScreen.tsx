@@ -13,7 +13,7 @@ import { useFocusEffect, useRoute, useNavigation } from '@react-navigation/nativ
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-
+import { globalStyles } from '../../globalStyles'; 
 import { AppointmentsStackParamList } from '../../navigation/AppointmentsStackNavigator';
 
 type NavigationProp = StackNavigationProp<AppointmentsStackParamList, 'Appointments'>;
@@ -149,7 +149,7 @@ const AppointmentsScreen: React.FC = () => {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[globalStyles.safeArea, styles.safeArea]}>
       <View style={{ flex: 1 }}>
         <FlatList
           data={appointments}

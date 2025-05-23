@@ -24,6 +24,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { subscribeToUpdates } from '../../data/sharedState';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { globalStyles } from '../../globalStyles'; 
 
 interface Booking {
   patientName: string;
@@ -432,7 +433,7 @@ useEffect(() => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[globalStyles.safeArea, styles.safeArea]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4a90e2" />
         </View>
@@ -441,7 +442,7 @@ useEffect(() => {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[globalStyles.safeArea, styles.safeArea]}>
       <FlatList
         data={doctors}
         renderItem={renderDoctorItem}
@@ -491,7 +492,7 @@ useEffect(() => {
           }
         }}
       >
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={[globalStyles.safeArea, styles.safeArea]}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={{ flex: 1 }}

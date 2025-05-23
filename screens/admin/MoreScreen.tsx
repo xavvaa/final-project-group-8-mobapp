@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { globalStyles } from '../../globalStyles'; 
 
 const AdminSettingsScreen = () => {
   const navigation = useNavigation();
@@ -43,7 +44,7 @@ const AdminSettingsScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[globalStyles.safeArea, styles.safeArea]}>
       <ScrollView style={styles.container}>
         <Text style={styles.header}>Admin Settings</Text>
         

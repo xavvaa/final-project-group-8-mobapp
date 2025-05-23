@@ -8,9 +8,11 @@ import {
   TouchableOpacity,
   Alert,
   RefreshControl,
-  TextInput
+  TextInput,
+  ScrollView
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { globalStyles } from '../../globalStyles'; 
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { notifyUpdates } from '../../data/sharedState';
@@ -40,10 +42,8 @@ const AdAppointmentsScreen = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [sortOption, setSortOption] = useState<SortOption>('dateAsc');
 
-  // Helper function to parse appointment dates consistently
   const parseAppointmentDate = (appointment: Appointment): number => {
     try {
-      // Assuming date is in YYYY-MM-DD format and time is in HH:MM format
       const [year, month, day] = appointment.date.split('-');
       const [hours, minutes] = appointment.time.split(':');
       return new Date(
@@ -55,7 +55,7 @@ const AdAppointmentsScreen = () => {
       ).getTime();
     } catch (e) {
       console.error('Error parsing date:', e);
-      return 0; // Fallback value
+      return 0;
     }
   };
 
@@ -85,9 +85,9 @@ const AdAppointmentsScreen = () => {
       }
     } catch (error) {
       console.error('Error fetching appointments:', error);
-      } finally {
-        setRefreshing(false);
-      }
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   useEffect(() => {
@@ -98,33 +98,32 @@ const AdAppointmentsScreen = () => {
     filterAppointments(appointments, searchQuery, statusFilter);
   }, [searchQuery, statusFilter, appointments, sortOption]);
 
-const filterAppointments = (data: Appointment[], query: string, status: string) => {
-  let filtered = data;
+  const filterAppointments = (data: Appointment[], query: string, status: string) => {
+    let filtered = data;
 
-  if (status !== 'All') {
-    filtered = filtered.filter(app => app.status.toLowerCase() === status.toLowerCase());
-  }
+    if (status !== 'All') {
+      filtered = filtered.filter(app => app.status.toLowerCase() === status.toLowerCase());
+    }
 
-  if (query) {
-    const lowerQuery = query.toLowerCase();
-    filtered = filtered.filter(app =>
-      app.patientName.toLowerCase().includes(lowerQuery) ||
-      app.doctor.toLowerCase().includes(lowerQuery) ||
-      app.specialty.toLowerCase().includes(lowerQuery) ||
-      app.date.toLowerCase().includes(lowerQuery) ||
-      app.time.toLowerCase().includes(lowerQuery)
-    );
-  }
+    if (query) {
+      const lowerQuery = query.toLowerCase();
+      filtered = filtered.filter(app =>
+        app.patientName.toLowerCase().includes(lowerQuery) ||
+        app.doctor.toLowerCase().includes(lowerQuery) ||
+        app.specialty.toLowerCase().includes(lowerQuery) ||
+        app.date.toLowerCase().includes(lowerQuery) ||
+        app.time.toLowerCase().includes(lowerQuery)
+      );
+    }
 
-  // Apply sorting
-  filtered = [...filtered].sort((a, b) => {
-    const dateA = parseAppointmentDate(a);
-    const dateB = parseAppointmentDate(b);
-    return sortOption === 'dateAsc' ? dateA - dateB : dateB - dateA;
-  });
+    filtered = [...filtered].sort((a, b) => {
+      const dateA = parseAppointmentDate(a);
+      const dateB = parseAppointmentDate(b);
+      return sortOption === 'dateAsc' ? dateA - dateB : dateB - dateA;
+    });
 
-  setFilteredAppointments(filtered);
-};
+    setFilteredAppointments(filtered);
+  };
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -157,50 +156,49 @@ const filterAppointments = (data: Appointment[], query: string, status: string) 
   };
 
   const approveAppointment = async (id: string) => {
-  try {
-    const appointmentToApprove = appointments.find(app => app.id === id);
-    if (!appointmentToApprove) return;
+    try {
+      const appointmentToApprove = appointments.find(app => app.id === id);
+      if (!appointmentToApprove) return;
 
-    const updatedAppointments = appointments.map(app =>
-      app.id === id ? { ...app, status: 'Confirmed' } : app
-    );
+      const updatedAppointments = appointments.map(app =>
+        app.id === id ? { ...app, status: 'Confirmed' } : app
+      );
 
-    const storedDoctors = await AsyncStorage.getItem('doctors');
-    if (storedDoctors) {
-      const doctors = JSON.parse(storedDoctors);
-      const doctorIndex = doctors.findIndex((d: any) => d.name === appointmentToApprove.doctor);
-      
-      if (doctorIndex !== -1) {
-        if (!doctors[doctorIndex].bookings) {
-          doctors[doctorIndex].bookings = {};
-        }
-        if (!doctors[doctorIndex].bookings[appointmentToApprove.date]) {
-          doctors[doctorIndex].bookings[appointmentToApprove.date] = {};
-        }
+      const storedDoctors = await AsyncStorage.getItem('doctors');
+      if (storedDoctors) {
+        const doctors = JSON.parse(storedDoctors);
+        const doctorIndex = doctors.findIndex((d: any) => d.name === appointmentToApprove.doctor);
         
-        doctors[doctorIndex].bookings[appointmentToApprove.date][appointmentToApprove.time] = {
-          patientName: appointmentToApprove.patientName,
-          patientEmail: appointmentToApprove.patientEmail,
-          patientPhone: appointmentToApprove.patientPhone,
-          notes: appointmentToApprove.notes
-        };
+        if (doctorIndex !== -1) {
+          if (!doctors[doctorIndex].bookings) {
+            doctors[doctorIndex].bookings = {};
+          }
+          if (!doctors[doctorIndex].bookings[appointmentToApprove.date]) {
+            doctors[doctorIndex].bookings[appointmentToApprove.date] = {};
+          }
+          
+          doctors[doctorIndex].bookings[appointmentToApprove.date][appointmentToApprove.time] = {
+            patientName: appointmentToApprove.patientName,
+            patientEmail: appointmentToApprove.patientEmail,
+            patientPhone: appointmentToApprove.patientPhone,
+            notes: appointmentToApprove.notes
+          };
 
-        await AsyncStorage.setItem('doctors', JSON.stringify(doctors));
+          await AsyncStorage.setItem('doctors', JSON.stringify(doctors));
+        }
       }
-    }
 
-    await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
-    setAppointments(updatedAppointments);
-    filterAppointments(updatedAppointments, searchQuery, statusFilter);
-    Alert.alert('Success', 'Appointment approved successfully');
-    
-    // Notify all subscribers that appointments were updated
-    notifyUpdates();
-  } catch (error) {
-    console.error('Error approving appointment:', error);
-    Alert.alert('Error', 'Failed to approve appointment');
-  }
-};
+      await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
+      setAppointments(updatedAppointments);
+      filterAppointments(updatedAppointments, searchQuery, statusFilter);
+      Alert.alert('Success', 'Appointment approved successfully');
+      
+      notifyUpdates();
+    } catch (error) {
+      console.error('Error approving appointment:', error);
+      Alert.alert('Error', 'Failed to approve appointment');
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch ((status || '').toLowerCase()) {
@@ -297,7 +295,7 @@ const filterAppointments = (data: Appointment[], query: string, status: string) 
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[globalStyles.safeArea, styles.safeArea]}>
       <LinearGradient
         colors={['#f8f9fa', '#e9f5ff']}
         style={styles.background}
@@ -324,23 +322,30 @@ const filterAppointments = (data: Appointment[], query: string, status: string) 
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search appointments..."
+            placeholder="Search doctor or user..."
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
-          <View style={styles.filterContainer}>
-            {['All', 'Pending', 'Confirmed', 'Declined'].map(status => (
+          <ScrollView 
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterScrollContainer}
+          >
+            {['All', 'Pending', 'Confirmed', 'Declined', 'Cancelled'].map(status => (
               <TouchableOpacity
                 key={status}
-                style={[styles.filterButton, statusFilter === status && styles.activeFilter]}
+                style={[
+                  styles.filterButton, 
+                  statusFilter === status && styles.activeFilter,
+                  { marginRight: 8 } // Add spacing between buttons
+                ]}
                 onPress={() => setStatusFilter(status)}
               >
                 <Text style={styles.filterButtonText}>{status}</Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         </View>
-
         <FlatList
           data={filteredAppointments}
           renderItem={renderAppointmentItem}
@@ -518,17 +523,21 @@ const styles = StyleSheet.create({
     marginTop: 4
   },
   sortButton: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  padding: 8,
-  backgroundColor: '#f0e6ff',
-  borderRadius: 20,
-},
-sortButtonText: {
-  marginLeft: 4,
-  color: '#6a11cb',
-  fontWeight: 'bold',
-}
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    backgroundColor: '#f0e6ff',
+    borderRadius: 20,
+  },
+  sortButtonText: {
+    marginLeft: 4,
+    color: '#6a11cb',
+    fontWeight: 'bold',
+  },
+  filterScrollContainer: {
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  }
 });
 
 export default AdAppointmentsScreen;

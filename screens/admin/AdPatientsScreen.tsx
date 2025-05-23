@@ -11,6 +11,7 @@ import {
   RefreshControl
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { globalStyles } from '../../globalStyles'; 
 import { Ionicons } from '@expo/vector-icons';
 
 interface Patient {
@@ -140,7 +141,7 @@ const AdPatientsScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[globalStyles.safeArea, styles.safeArea]}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Patient Records</Text>
       </View>
