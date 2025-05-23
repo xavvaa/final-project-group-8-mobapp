@@ -143,9 +143,6 @@ const AdPatientsScreen = () => {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Patient Records</Text>
-        <TouchableOpacity onPress={handleRefresh}>
-          <Ionicons name="refresh" size={24} color="#4a90e2" />
-        </TouchableOpacity>
       </View>
 
       <FlatList

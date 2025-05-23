@@ -126,7 +126,7 @@ const UserDoctorListScreen = ({ navigation }) => {
             >
               {getDoctorAvatar(item.name)}
               <View style={styles.doctorInfo}>
-                <Text style={styles.doctorName}>Dr. {item.name}</Text>
+                <Text style={styles.doctorName}>{item.name}</Text>
                 <Text style={styles.doctorSpecialty}>{item.specialty}</Text>
                 <View style={styles.ratingContainer}>
                   <Ionicons name="star" size={16} color="#FFC107" />

@@ -160,17 +160,63 @@ useEffect(() => {
     const saved = await AsyncStorage.getItem('appointments');
     const allAppointments: Appointment[] = saved ? JSON.parse(saved) : [];
 
+<<<<<<< HEAD
     const isDuplicate = allAppointments.some(
       (appt) =>
         appt.userId === currentUser.id &&
         appt.doctorId === doctor.id &&
         appt.date === selectedDate
     );
+=======
+      const saved = await AsyncStorage.getItem('appointments');
+      const allAppointments: Appointment[] = saved ? JSON.parse(saved) : [];
+
+      const isDuplicate = allAppointments.some(
+        (appt) =>
+          appt.userId === currentUser.id &&
+          appt.doctorId === doctor.id &&
+          appt.date === selectedDate
+      );
+
+      if (isDuplicate) {
+        Alert.alert(
+          'Duplicate Booking',
+          `You have already booked ${doctor.name} on ${selectedDate}.`
+        );
+        return;
+      }
+
+      const newAppointment: Appointment = {
+        id: Date.now().toString(),
+        userId: currentUser.id,
+        userName: currentUser.name,
+        doctorId: doctor.id,
+        doctorName: doctor.name,
+        date: selectedDate,
+        time: selectedTime,
+        patientEmail: currentUser.email || '',
+        patientPhone: currentUser.phone || '',
+        notes: '',
+        status: 'Pending',
+      };
+
+      const updatedAppointments = [...allAppointments, newAppointment];
+
+      await AsyncStorage.setItem('appointments', JSON.stringify(updatedAppointments));
+      setAppointments(
+        updatedAppointments.filter((appt) => appt.userId === currentUser.id)
+      );
+>>>>>>> 5c42403e1975cd36348cd22119f5ca1d82e59393
 
     if (isDuplicate) {
       Alert.alert(
+<<<<<<< HEAD
         'Duplicate Booking',
         `You have already booked Dr. ${doctor.name} on ${selectedDate}.`
+=======
+        'Success',
+        `Appointment booked with ${doctor.name} on ${selectedDate} at ${selectedTime}`
+>>>>>>> 5c42403e1975cd36348cd22119f5ca1d82e59393
       );
       return;
     }
@@ -239,7 +285,7 @@ useEffect(() => {
         </TouchableOpacity>
 
         <View style={styles.card}>
-          <Text style={styles.doctorName}>Dr. {doctor.name}</Text>
+          <Text style={styles.doctorName}> {doctor.name}</Text>
           <Text style={styles.specialty}>{doctor.specialty}</Text>
           <Text style={styles.bio}>{doctor.bio || 'No bio available.'}</Text>
         </View>
@@ -320,7 +366,7 @@ useEffect(() => {
           <View style={styles.modalBackground}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Confirm Booking</Text>
-              <Text style={styles.modalInfo}>Doctor: Dr. {doctor.name}</Text>
+              <Text style={styles.modalInfo}>Doctor: {doctor.name}</Text>
               <Text style={styles.modalInfo}>Date: {selectedDate}</Text>
               <Text style={styles.modalInfo}>Time: {selectedTime}</Text>
 
